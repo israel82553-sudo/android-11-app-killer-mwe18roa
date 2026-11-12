@@ -1,0 +1,656 @@
+package com.generated.app;
+
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.AppOpsManager;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.text.Collator;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class MainActivity extends Activity implements AppListAdapter.AppActionListener {
+
+    private static final String PREFS_NAME = "app_killer_prefs";
+    private static final String KEY_PROTECTED = "protected_packages";
+    private static final long RECENT_WINDOW_MS = 24L * 60L * 60L * 1000L;
+
+    private ActivityManager activityManager;
+    private PackageManager packageManager;
+    private SharedPreferences prefs;
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    private final List<AppItem> allLoadedApps = new ArrayList<>();
+    private final Set<String> killedThisSession = new HashSet<>();
+    private final Set<String> protectedPackages = new HashSet<>();
+
+    private AppListAdapter adapter;
+
+    private ImageButton btnRefresh;
+    private TextView tvRamSummary;
+    private TextView tvRamFree;
+    private ProgressBar progressRam;
+    private TextView tvAppCountBadge;
+    private LinearLayout cardUsagePermission;
+    private Button btnGrantUsage;
+    private TextView btnTabRecent;
+    private TextView btnTabAll;
+    private EditText etSearch;
+    private ImageButton btnClearSearch;
+    private ListView lvApps;
+    private ProgressBar progressLoading;
+    private LinearLayout layoutEmpty;
+    private TextView tvEmptyMessage;
+    private Button btnEmptySwitchTab;
+    private TextView tvResultBanner;
+    private Button btnKillAll;
+
+    private boolean showRecentOnly = true;
+    private boolean hasUsagePermission = false;
+    private boolean isLoading = false;
+    private boolean isKillingAll = false;
+    private String searchQuery = "";
+
+    private final Runnable hideBannerRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (tvResultBanner != null) {
+                tvResultBanner.setVisibility(View.GONE);
+            }
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getWindow().setStatusBarColor(0xFF0F172A);
+        setContentView(R.layout.activity_main);
+
+        activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        packageManager = getPackageManager();
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        Set<String> savedProtected = prefs.getStringSet(KEY_PROTECTED, null);
+        if (savedProtected != null) {
+            protectedPackages.addAll(savedProtected);
+        }
+
+        bindViews();
+        setupListeners();
+
+        adapter = new AppListAdapter(this, this);
+        lvApps.setAdapter(adapter);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateRamInfo();
+        loadAppsAsync(false);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mainHandler.removeCallbacks(hideBannerRunnable);
+        executor.shutdownNow();
+    }
+
+    private void bindViews() {
+        btnRefresh = findViewById(R.id.btnRefresh);
+        tvRamSummary = findViewById(R.id.tvRamSummary);
+        tvRamFree = findViewById(R.id.tvRamFree);
+        progressRam = findViewById(R.id.progressRam);
+        tvAppCountBadge = findViewById(R.id.tvAppCountBadge);
+        cardUsagePermission = findViewById(R.id.cardUsagePermission);
+        btnGrantUsage = findViewById(R.id.btnGrantUsage);
+        btnTabRecent = findViewById(R.id.btnTabRecent);
+        btnTabAll = findViewById(R.id.btnTabAll);
+        etSearch = findViewById(R.id.etSearch);
+        btnClearSearch = findViewById(R.id.btnClearSearch);
+        lvApps = findViewById(R.id.lvApps);
+        progressLoading = findViewById(R.id.progressLoading);
+        layoutEmpty = findViewById(R.id.layoutEmpty);
+        tvEmptyMessage = findViewById(R.id.tvEmptyMessage);
+        btnEmptySwitchTab = findViewById(R.id.btnEmptySwitchTab);
+        tvResultBanner = findViewById(R.id.tvResultBanner);
+        btnKillAll = findViewById(R.id.btnKillAll);
+    }
+
+    private void setupListeners() {
+        btnRefresh.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                killedThisSession.clear();
+                v.animate().rotationBy(360f).setDuration(420).start();
+                updateRamInfo();
+                loadAppsAsync(true);
+            }
+        });
+
+        btnGrantUsage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openUsageAccessSettings();
+            }
+        });
+
+        btnTabRecent.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!showRecentOnly) {
+                    showRecentOnly = true;
+                    updateTabStyles();
+                    applyFilterAndUpdateUi();
+                }
+            }
+        });
+
+        btnTabAll.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (showRecentOnly) {
+                    showRecentOnly = false;
+                    updateTabStyles();
+                    applyFilterAndUpdateUi();
+                }
+            }
+        });
+
+        btnEmptySwitchTab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showRecentOnly = false;
+                updateTabStyles();
+                applyFilterAndUpdateUi();
+            }
+        });
+
+        etSearch.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                searchQuery = s == null ? "" : s.toString().trim().toLowerCase(Locale.getDefault());
+                btnClearSearch.setVisibility(searchQuery.isEmpty() ? View.GONE : View.VISIBLE);
+                applyFilterAndUpdateUi();
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+
+        btnClearSearch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                etSearch.setText("");
+            }
+        });
+
+        btnKillAll.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                killAllVisibleApps();
+            }
+        });
+    }
+
+    private void updateTabStyles() {
+        if (showRecentOnly) {
+            btnTabRecent.setBackgroundResource(R.drawable.bg_tab_selected);
+            btnTabRecent.setTextColor(0xFFFFFFFF);
+            btnTabAll.setBackgroundResource(R.drawable.bg_tab_unselected);
+            btnTabAll.setTextColor(getResources().getColor(R.color.text_secondary));
+        } else {
+            btnTabAll.setBackgroundResource(R.drawable.bg_tab_selected);
+            btnTabAll.setTextColor(0xFFFFFFFF);
+            btnTabRecent.setBackgroundResource(R.drawable.bg_tab_unselected);
+            btnTabRecent.setTextColor(getResources().getColor(R.color.text_secondary));
+        }
+    }
+
+    private void updateRamInfo() {
+        if (activityManager == null) {
+            return;
+        }
+        ActivityManager.MemoryInfo memInfo = new ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memInfo);
+
+        long total = Math.max(1L, memInfo.totalMem);
+        long avail = Math.max(0L, memInfo.availMem);
+        long used = Math.max(0L, total - avail);
+        int usedPercent = (int) Math.min(100L, Math.max(0L, (used * 100L) / total));
+
+        progressRam.setProgress(usedPercent);
+        tvRamSummary.setText(getString(R.string.ram_used_format, formatBytes(used), formatBytes(total)));
+        tvRamFree.setText(getString(R.string.ram_free_format, formatBytes(avail)));
+    }
+
+    private void loadAppsAsync(final boolean showSpinner) {
+        if (isLoading) {
+            return;
+        }
+        isLoading = true;
+        hasUsagePermission = hasUsageStatsPermission();
+        cardUsagePermission.setVisibility(hasUsagePermission ? View.GONE : View.VISIBLE);
+
+        if (showSpinner || allLoadedApps.isEmpty()) {
+            progressLoading.setVisibility(View.VISIBLE);
+            layoutEmpty.setVisibility(View.GONE);
+        }
+
+        final boolean usageAllowed = hasUsagePermission;
+        final Set<String> protectedSnapshot = new HashSet<>(protectedPackages);
+        final Set<String> killedSnapshot = new HashSet<>(killedThisSession);
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                final List<AppItem> loaded = queryInstalledAndRecentApps(
+                        usageAllowed, protectedSnapshot, killedSnapshot);
+
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        isLoading = false;
+                        progressLoading.setVisibility(View.GONE);
+                        allLoadedApps.clear();
+                        allLoadedApps.addAll(loaded);
+                        applyFilterAndUpdateUi();
+                    }
+                });
+            }
+        });
+    }
+
+    private List<AppItem> queryInstalledAndRecentApps(
+            boolean usageAllowed,
+            Set<String> protectedSnapshot,
+            Set<String> killedSnapshot) {
+
+        Map<String, Long> recentUsageMap = new HashMap<>();
+        if (usageAllowed) {
+            UsageStatsManager usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+            if (usm != null) {
+                long endTime = System.currentTimeMillis();
+                long beginTime = endTime - RECENT_WINDOW_MS;
+                List<UsageStats> statsList = usm.queryUsageStats(
+                        UsageStatsManager.INTERVAL_DAILY, beginTime, endTime);
+                if (statsList != null) {
+                    for (UsageStats stats : statsList) {
+                        if (stats != null && stats.getLastTimeUsed() > beginTime) {
+                            String pkg = stats.getPackageName();
+                            Long existing = recentUsageMap.get(pkg);
+                            if (existing == null || stats.getLastTimeUsed() > existing) {
+                                recentUsageMap.put(pkg, stats.getLastTimeUsed());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Set<String> launchablePackages = new HashSet<>();
+        Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
+        mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        List<ResolveInfo> resolveInfos = packageManager.queryIntentActivities(mainIntent, 0);
+        if (resolveInfos != null) {
+            for (ResolveInfo ri : resolveInfos) {
+                if (ri.activityInfo != null && ri.activityInfo.packageName != null) {
+                    launchablePackages.add(ri.activityInfo.packageName);
+                }
+            }
+        }
+
+        String selfPackage = getPackageName();
+        List<ApplicationInfo> installed = packageManager.getInstalledApplications(0);
+        List<AppItem> result = new ArrayList<>();
+
+        if (installed != null) {
+            for (ApplicationInfo appInfo : installed) {
+                String pkg = appInfo.packageName;
+                if (pkg == null || pkg.equals(selfPackage)) {
+                    continue;
+                }
+                boolean isPersistent = (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
+                if (isPersistent) {
+                    continue;
+                }
+                boolean isSystem = (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+                boolean isLaunchable = launchablePackages.contains(pkg);
+                if (isSystem && !isLaunchable) {
+                    continue;
+                }
+
+                boolean isStopped = (appInfo.flags & ApplicationInfo.FLAG_STOPPED) != 0;
+                Long lastUsedObj = recentUsageMap.get(pkg);
+                long lastUsed = lastUsedObj != null ? lastUsedObj : 0L;
+
+                CharSequence labelSeq = appInfo.loadLabel(packageManager);
+                String appName = labelSeq != null ? labelSeq.toString().trim() : pkg;
+                if (appName.isEmpty()) {
+                    appName = pkg;
+                }
+
+                Drawable icon;
+                try {
+                    icon = appInfo.loadIcon(packageManager);
+                } catch (Exception e) {
+                    icon = packageManager.getDefaultActivityIcon();
+                }
+
+                result.add(new AppItem(
+                        pkg,
+                        appName,
+                        icon,
+                        lastUsed,
+                        isStopped,
+                        protectedSnapshot.contains(pkg),
+                        killedSnapshot.contains(pkg)));
+            }
+        }
+
+        final Collator collator = Collator.getInstance(new Locale("he", "IL"));
+        Collections.sort(result, new Comparator<AppItem>() {
+            @Override
+            public int compare(AppItem a, AppItem b) {
+                if (a.lastTimeUsed != b.lastTimeUsed) {
+                    return Long.compare(b.lastTimeUsed, a.lastTimeUsed);
+                }
+                if (a.isStopped != b.isStopped) {
+                    return a.isStopped ? 1 : -1;
+                }
+                return collator.compare(a.appName, b.appName);
+            }
+        });
+
+        return result;
+    }
+
+    private void applyFilterAndUpdateUi() {
+        List<AppItem> filtered = new ArrayList<>();
+        for (AppItem item : allLoadedApps) {
+            if (showRecentOnly) {
+                if (!hasUsagePermission || item.lastTimeUsed <= 0L) {
+                    continue;
+                }
+            }
+            if (!searchQuery.isEmpty()) {
+                String nameLower = item.appName.toLowerCase(Locale.getDefault());
+                String pkgLower = item.packageName.toLowerCase(Locale.getDefault());
+                if (!nameLower.contains(searchQuery) && !pkgLower.contains(searchQuery)) {
+                    continue;
+                }
+            }
+            filtered.add(item);
+        }
+
+        adapter.setItems(filtered);
+        tvAppCountBadge.setText(getString(R.string.apps_count_format, filtered.size()));
+
+        if (filtered.isEmpty() && !isLoading) {
+            layoutEmpty.setVisibility(View.VISIBLE);
+            lvApps.setVisibility(View.GONE);
+            if (!searchQuery.isEmpty()) {
+                tvEmptyMessage.setText(R.string.empty_search);
+                btnEmptySwitchTab.setVisibility(View.GONE);
+            } else if (showRecentOnly && !hasUsagePermission) {
+                tvEmptyMessage.setText(R.string.empty_recent_no_perm);
+                btnEmptySwitchTab.setVisibility(View.VISIBLE);
+            } else if (showRecentOnly) {
+                tvEmptyMessage.setText(R.string.empty_recent_none);
+                btnEmptySwitchTab.setVisibility(View.VISIBLE);
+            } else {
+                tvEmptyMessage.setText(R.string.empty_recent_none);
+                btnEmptySwitchTab.setVisibility(View.GONE);
+            }
+        } else {
+            layoutEmpty.setVisibility(View.GONE);
+            lvApps.setVisibility(View.VISIBLE);
+        }
+
+        updateKillAllButtonState(filtered);
+    }
+
+    private void updateKillAllButtonState(List<AppItem> visibleItems) {
+        if (isKillingAll) {
+            btnKillAll.setText(R.string.btn_killing);
+            btnKillAll.setEnabled(false);
+            btnKillAll.setAlpha(0.7f);
+            return;
+        }
+
+        int killableCount = 0;
+        for (AppItem item : visibleItems) {
+            if (!item.isProtected && !item.isKilled && !item.isStopped) {
+                killableCount++;
+            }
+        }
+
+        if (killableCount > 0) {
+            btnKillAll.setText(getString(R.string.btn_kill_all, killableCount));
+            btnKillAll.setEnabled(true);
+            btnKillAll.setAlpha(1.0f);
+        } else {
+            btnKillAll.setText(R.string.btn_kill_all_none);
+            btnKillAll.setEnabled(false);
+            btnKillAll.setAlpha(0.55f);
+        }
+    }
+
+    private void killAllVisibleApps() {
+        if (isKillingAll || activityManager == null) {
+            return;
+        }
+
+        final List<AppItem> targets = new ArrayList<>();
+        int count = adapter.getCount();
+        for (int i = 0; i < count; i++) {
+            AppItem item = adapter.getItem(i);
+            if (!item.isProtected && !item.isKilled && !item.isStopped) {
+                targets.add(item);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            showResultBanner(getString(R.string.result_none_to_kill));
+            return;
+        }
+
+        isKillingAll = true;
+        btnKillAll.setText(R.string.btn_killing);
+        btnKillAll.setEnabled(false);
+        btnKillAll.setAlpha(0.7f);
+
+        ActivityManager.MemoryInfo beforeMem = new ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(beforeMem);
+        final long availBefore = beforeMem.availMem;
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                for (AppItem item : targets) {
+                    try {
+                        activityManager.killBackgroundProcesses(item.packageName);
+                    } catch (SecurityException ignored) {
+                    }
+                }
+
+                try {
+                    Thread.sleep(350L);
+                } catch (InterruptedException ignored) {
+                }
+
+                ActivityManager.MemoryInfo afterMem = new ActivityManager.MemoryInfo();
+                activityManager.getMemoryInfo(afterMem);
+                final long freedBytes = Math.max(0L, afterMem.availMem - availBefore);
+
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        for (AppItem item : targets) {
+                            item.isKilled = true;
+                            killedThisSession.add(item.packageName);
+                        }
+                        isKillingAll = false;
+                        adapter.notifyDataSetChanged();
+                        updateRamInfo();
+                        applyFilterAndUpdateUi();
+
+                        if (freedBytes >= 1024L * 1024L) {
+                            showResultBanner(getString(
+                                    R.string.result_killed_freed,
+                                    targets.size(),
+                                    formatBytes(freedBytes)));
+                        } else {
+                            showResultBanner(getString(R.string.result_killed_only, targets.size()));
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    @Override
+    public void onKillSingle(AppItem item) {
+        if (activityManager == null || item.isKilled || item.isStopped) {
+            return;
+        }
+        try {
+            activityManager.killBackgroundProcesses(item.packageName);
+        } catch (SecurityException ignored) {
+        }
+        item.isKilled = true;
+        killedThisSession.add(item.packageName);
+        adapter.notifyDataSetChanged();
+        updateRamInfo();
+        applyFilterAndUpdateUi();
+        Toast.makeText(this, getString(R.string.toast_single_killed, item.appName), Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onToggleProtect(AppItem item) {
+        if (item.isProtected) {
+            item.isProtected = false;
+            protectedPackages.remove(item.packageName);
+            Toast.makeText(this, getString(R.string.toast_unprotected, item.appName), Toast.LENGTH_SHORT).show();
+        } else {
+            item.isProtected = true;
+            protectedPackages.add(item.packageName);
+            Toast.makeText(this, getString(R.string.toast_protected, item.appName), Toast.LENGTH_SHORT).show();
+        }
+        prefs.edit().putStringSet(KEY_PROTECTED, new HashSet<>(protectedPackages)).apply();
+        adapter.notifyDataSetChanged();
+        applyFilterAndUpdateUi();
+    }
+
+    @Override
+    public void onOpenAppInfo(AppItem item) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.fromParts("package", item.packageName, null));
+            startActivity(intent);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void openUsageAccessSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            startActivity(intent);
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(Settings.ACTION_SETTINGS));
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private boolean hasUsageStatsPermission() {
+        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+        if (appOps == null) {
+            return false;
+        }
+        int mode;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mode = appOps.unsafeCheckOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    getPackageName());
+        } else {
+            mode = appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    getPackageName());
+        }
+        if (mode == AppOpsManager.MODE_DEFAULT) {
+            return checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        return mode == AppOpsManager.MODE_ALLOWED;
+    }
+
+    private void showResultBanner(String message) {
+        mainHandler.removeCallbacks(hideBannerRunnable);
+        tvResultBanner.setText(message);
+        tvResultBanner.setAlpha(0f);
+        tvResultBanner.setVisibility(View.VISIBLE);
+        tvResultBanner.animate().alpha(1f).setDuration(220).start();
+        mainHandler.postDelayed(hideBannerRunnable, 5000L);
+    }
+
+    private String formatBytes(long bytes) {
+        double mb = bytes / (1024.0 * 1024.0);
+        if (mb >= 1024.0) {
+            double gb = mb / 1024.0;
+            return String.format(Locale.US, "%.1f GB", gb);
+        }
+        return String.format(Locale.US, "%d MB", Math.round(mb));
+    }
+}
+=====END=====
