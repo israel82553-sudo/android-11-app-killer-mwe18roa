@@ -21,7 +21,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="6dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -63,21 +63,21 @@
 
     <ImageButton
         android:id="@+id/btnProtect"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/cd_protect"
-        android:padding="8dp"
+        android:padding="9dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_shield_outline" />
 
     <ImageButton
         android:id="@+id/btnAppInfo"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/cd_app_info"
-        android:padding="8dp"
+        android:padding="9dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_info" />
 
@@ -88,7 +88,7 @@
         android:layout_marginStart="4dp"
         android:background="@drawable/bg_btn_kill_small"
         android:gravity="center"
-        android:minWidth="58dp"
+        android:minWidth="60dp"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
         android:text="@string/btn_kill_single"

@@ -1,6 +1,7 @@
 package com.generated.app;
 
 import android.content.Context;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -77,26 +78,38 @@ public class AppListAdapter extends BaseAdapter {
         if (item.isProtected) {
             holder.tvStatusBadge.setVisibility(View.VISIBLE);
             holder.tvStatusBadge.setText(R.string.status_protected);
-            holder.tvStatusBadge.setTextColor(context.getResources().getColor(R.color.protect_blue));
+            holder.tvStatusBadge.setTextColor(getCompatColor(R.color.protect_blue));
             holder.tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_protected);
         } else if (item.isKilled) {
             holder.tvStatusBadge.setVisibility(View.VISIBLE);
             holder.tvStatusBadge.setText(R.string.status_killed);
-            holder.tvStatusBadge.setTextColor(context.getResources().getColor(R.color.success_green));
+            holder.tvStatusBadge.setTextColor(getCompatColor(R.color.success_green));
             holder.tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_killed);
         } else if (item.isStopped) {
             holder.tvStatusBadge.setVisibility(View.VISIBLE);
             holder.tvStatusBadge.setText(R.string.status_stopped);
-            holder.tvStatusBadge.setTextColor(context.getResources().getColor(R.color.text_secondary));
+            holder.tvStatusBadge.setTextColor(getCompatColor(R.color.text_secondary));
             holder.tvStatusBadge.setBackgroundResource(R.drawable.bg_tab_unselected);
         } else {
             holder.tvStatusBadge.setVisibility(View.GONE);
         }
 
-        boolean canKill = !item.isKilled && !item.isStopped;
+        boolean canKill = !item.isProtected && !item.isKilled && !item.isStopped;
         holder.btnKillSingle.setEnabled(canKill);
-        holder.btnKillSingle.setAlpha(canKill ? 1.0f : 0.45f);
-        holder.ivAppIcon.setAlpha(item.isKilled || item.isStopped ? 0.65f : 1.0f);
+        if (item.isProtected) {
+            holder.btnKillSingle.setText(R.string.btn_kill_protected);
+            holder.btnKillSingle.setTextColor(getCompatColor(R.color.protect_blue));
+        } else if (item.isKilled) {
+            holder.btnKillSingle.setText(R.string.btn_kill_done);
+            holder.btnKillSingle.setTextColor(getCompatColor(R.color.success_green));
+        } else if (item.isStopped) {
+            holder.btnKillSingle.setText(R.string.btn_kill_stopped);
+            holder.btnKillSingle.setTextColor(getCompatColor(R.color.text_secondary));
+        } else {
+            holder.btnKillSingle.setText(R.string.btn_kill_single);
+            holder.btnKillSingle.setTextColor(getCompatColor(R.color.danger_rose));
+        }
+        holder.ivAppIcon.setAlpha((item.isKilled || item.isStopped) ? 0.65f : 1.0f);
 
         holder.btnProtect.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -128,18 +141,32 @@ public class AppListAdapter extends BaseAdapter {
         return convertView;
     }
 
+    @SuppressWarnings("deprecation")
+    private int getCompatColor(int colorResId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return context.getColor(colorResId);
+        }
+        return context.getResources().getColor(colorResId);
+    }
+
     private String buildSubtitle(AppItem item) {
-        if (item.lastTimeUsed > 0) {
+        if (item.lastTimeUsed > 0L) {
             long diffMs = Math.max(0L, System.currentTimeMillis() - item.lastTimeUsed);
             long mins = diffMs / 60000L;
-            if (mins < 2) {
+            if (mins < 2L) {
                 return context.getString(R.string.status_active_now);
-            } else if (mins < 60) {
+            } else if (mins < 60L) {
                 return context.getString(R.string.status_used_mins, (int) mins);
-            } else {
+            } else if (mins < 24L * 60L) {
                 long hours = Math.max(1L, mins / 60L);
                 return context.getString(R.string.status_used_hours, (int) hours);
+            } else {
+                long days = Math.max(1L, mins / (24L * 60L));
+                return context.getString(R.string.status_used_days, (int) days);
             }
+        }
+        if (item.isSystem) {
+            return context.getString(R.string.status_system_app);
         }
         return context.getString(R.string.status_installed);
     }

@@ -3,6 +3,7 @@ package com.generated.app;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
+import android.app.usage.UsageEvents;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
@@ -21,6 +22,7 @@ import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -82,6 +84,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private Button btnKillAll;
 
     private boolean showRecentOnly = true;
+    private boolean userSelectedTab = false;
     private boolean hasUsagePermission = false;
     private boolean isLoading = false;
     private boolean isKillingAll = false;
@@ -99,6 +102,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         getWindow().setStatusBarColor(0xFF0F172A);
         setContentView(R.layout.activity_main);
 
@@ -116,11 +120,20 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
         adapter = new AppListAdapter(this, this);
         lvApps.setAdapter(adapter);
+
+        hasUsagePermission = hasUsageStatsPermission();
+        showRecentOnly = hasUsagePermission;
+        updateTabStyles();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        hasUsagePermission = hasUsageStatsPermission();
+        if (!userSelectedTab) {
+            showRecentOnly = hasUsagePermission;
+            updateTabStyles();
+        }
         updateRamInfo();
         loadAppsAsync(false);
     }
@@ -174,6 +187,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         btnTabRecent.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                userSelectedTab = true;
                 if (!showRecentOnly) {
                     showRecentOnly = true;
                     updateTabStyles();
@@ -185,6 +199,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         btnTabAll.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                userSelectedTab = true;
                 if (showRecentOnly) {
                     showRecentOnly = false;
                     updateTabStyles();
@@ -196,6 +211,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         btnEmptySwitchTab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                userSelectedTab = true;
                 showRecentOnly = false;
                 updateTabStyles();
                 applyFilterAndUpdateUi();
@@ -238,14 +254,22 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         if (showRecentOnly) {
             btnTabRecent.setBackgroundResource(R.drawable.bg_tab_selected);
             btnTabRecent.setTextColor(0xFFFFFFFF);
-            btnTabAll.setBackgroundResource(R.drawable.bg_tab_unselected);
-            btnTabAll.setTextColor(getResources().getColor(R.color.text_secondary));
+            btnTabAll.setBackground(null);
+            btnTabAll.setTextColor(getCompatColor(R.color.text_secondary));
         } else {
             btnTabAll.setBackgroundResource(R.drawable.bg_tab_selected);
             btnTabAll.setTextColor(0xFFFFFFFF);
-            btnTabRecent.setBackgroundResource(R.drawable.bg_tab_unselected);
-            btnTabRecent.setTextColor(getResources().getColor(R.color.text_secondary));
+            btnTabRecent.setBackground(null);
+            btnTabRecent.setTextColor(getCompatColor(R.color.text_secondary));
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private int getCompatColor(int colorResId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return getColor(colorResId);
+        }
+        return getResources().getColor(colorResId);
     }
 
     private void updateRamInfo() {
@@ -259,14 +283,15 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         long avail = Math.max(0L, memInfo.availMem);
         long used = Math.max(0L, total - avail);
         int usedPercent = (int) Math.min(100L, Math.max(0L, (used * 100L) / total));
+        int freePercent = Math.max(0, 100 - usedPercent);
 
         progressRam.setProgress(usedPercent);
         tvRamSummary.setText(getString(R.string.ram_used_format, formatBytes(used), formatBytes(total)));
-        tvRamFree.setText(getString(R.string.ram_free_format, formatBytes(avail)));
+        tvRamFree.setText(getString(R.string.ram_free_format, formatBytes(avail), freePercent));
     }
 
     private void loadAppsAsync(final boolean showSpinner) {
-        if (isLoading) {
+        if (isLoading || executor.isShutdown()) {
             return;
         }
         isLoading = true;
@@ -316,18 +341,50 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
             if (usm != null) {
                 long endTime = System.currentTimeMillis();
                 long beginTime = endTime - RECENT_WINDOW_MS;
+
                 List<UsageStats> statsList = usm.queryUsageStats(
-                        UsageStatsManager.INTERVAL_DAILY, beginTime, endTime);
+                        UsageStatsManager.INTERVAL_BEST, beginTime, endTime);
                 if (statsList != null) {
                     for (UsageStats stats : statsList) {
-                        if (stats != null && stats.getLastTimeUsed() > beginTime) {
-                            String pkg = stats.getPackageName();
-                            Long existing = recentUsageMap.get(pkg);
-                            if (existing == null || stats.getLastTimeUsed() > existing) {
-                                recentUsageMap.put(pkg, stats.getLastTimeUsed());
+                        if (stats != null) {
+                            long lastUsed = stats.getLastTimeUsed();
+                            if (lastUsed >= beginTime && lastUsed <= endTime + 60000L) {
+                                String pkg = stats.getPackageName();
+                                if (pkg != null) {
+                                    Long existing = recentUsageMap.get(pkg);
+                                    if (existing == null || lastUsed > existing) {
+                                        recentUsageMap.put(pkg, lastUsed);
+                                    }
+                                }
                             }
                         }
                     }
+                }
+
+                try {
+                    UsageEvents events = usm.queryEvents(beginTime, endTime);
+                    if (events != null) {
+                        UsageEvents.Event event = new UsageEvents.Event();
+                        while (events.hasNextEvent()) {
+                            events.getNextEvent(event);
+                            int type = event.getEventType();
+                            boolean isForeground = (type == UsageEvents.Event.MOVE_TO_FOREGROUND);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                isForeground = isForeground || (type == UsageEvents.Event.ACTIVITY_RESUMED);
+                            }
+                            if (isForeground && event.getPackageName() != null) {
+                                long ts = event.getTimeStamp();
+                                if (ts >= beginTime && ts <= endTime + 60000L) {
+                                    String pkg = event.getPackageName();
+                                    Long existing = recentUsageMap.get(pkg);
+                                    if (existing == null || ts > existing) {
+                                        recentUsageMap.put(pkg, ts);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
                 }
             }
         }
@@ -351,7 +408,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         if (installed != null) {
             for (ApplicationInfo appInfo : installed) {
                 String pkg = appInfo.packageName;
-                if (pkg == null || pkg.equals(selfPackage)) {
+                if (pkg == null || pkg.equals(selfPackage) || !appInfo.enabled) {
                     continue;
                 }
                 boolean isPersistent = (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
@@ -387,6 +444,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                         icon,
                         lastUsed,
                         isStopped,
+                        isSystem,
                         protectedSnapshot.contains(pkg),
                         killedSnapshot.contains(pkg)));
             }
@@ -402,6 +460,9 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                 if (a.isStopped != b.isStopped) {
                     return a.isStopped ? 1 : -1;
                 }
+                if (a.isSystem != b.isSystem) {
+                    return a.isSystem ? 1 : -1;
+                }
                 return collator.compare(a.appName, b.appName);
             }
         });
@@ -411,6 +472,8 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     private void applyFilterAndUpdateUi() {
         List<AppItem> filtered = new ArrayList<>();
+        int protectedVisibleCount = 0;
+
         for (AppItem item : allLoadedApps) {
             if (showRecentOnly) {
                 if (!hasUsagePermission || item.lastTimeUsed <= 0L) {
@@ -424,11 +487,21 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                     continue;
                 }
             }
+            if (item.isProtected) {
+                protectedVisibleCount++;
+            }
             filtered.add(item);
         }
 
         adapter.setItems(filtered);
-        tvAppCountBadge.setText(getString(R.string.apps_count_format, filtered.size()));
+        if (protectedVisibleCount > 0) {
+            tvAppCountBadge.setText(getString(
+                    R.string.apps_count_with_protected_format,
+                    filtered.size(),
+                    protectedVisibleCount));
+        } else {
+            tvAppCountBadge.setText(getString(R.string.apps_count_format, filtered.size()));
+        }
 
         if (filtered.isEmpty() && !isLoading) {
             layoutEmpty.setVisibility(View.VISIBLE);
@@ -443,7 +516,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                 tvEmptyMessage.setText(R.string.empty_recent_none);
                 btnEmptySwitchTab.setVisibility(View.VISIBLE);
             } else {
-                tvEmptyMessage.setText(R.string.empty_recent_none);
+                tvEmptyMessage.setText(R.string.empty_all_none);
                 btnEmptySwitchTab.setVisibility(View.GONE);
             }
         } else {
@@ -458,7 +531,6 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         if (isKillingAll) {
             btnKillAll.setText(R.string.btn_killing);
             btnKillAll.setEnabled(false);
-            btnKillAll.setAlpha(0.7f);
             return;
         }
 
@@ -472,16 +544,14 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         if (killableCount > 0) {
             btnKillAll.setText(getString(R.string.btn_kill_all, killableCount));
             btnKillAll.setEnabled(true);
-            btnKillAll.setAlpha(1.0f);
         } else {
             btnKillAll.setText(R.string.btn_kill_all_none);
             btnKillAll.setEnabled(false);
-            btnKillAll.setAlpha(0.55f);
         }
     }
 
     private void killAllVisibleApps() {
-        if (isKillingAll || activityManager == null) {
+        if (isKillingAll || activityManager == null || executor.isShutdown()) {
             return;
         }
 
@@ -502,7 +572,6 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         isKillingAll = true;
         btnKillAll.setText(R.string.btn_killing);
         btnKillAll.setEnabled(false);
-        btnKillAll.setAlpha(0.7f);
 
         ActivityManager.MemoryInfo beforeMem = new ActivityManager.MemoryInfo();
         activityManager.getMemoryInfo(beforeMem);
@@ -558,7 +627,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     @Override
     public void onKillSingle(AppItem item) {
-        if (activityManager == null || item.isKilled || item.isStopped) {
+        if (activityManager == null || item.isProtected || item.isKilled || item.isStopped) {
             return;
         }
         try {
@@ -623,16 +692,21 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                     android.os.Process.myUid(),
                     getPackageName());
         } else {
-            mode = appOps.checkOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    android.os.Process.myUid(),
-                    getPackageName());
+            mode = checkOpLegacy(appOps);
         }
         if (mode == AppOpsManager.MODE_DEFAULT) {
             return checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS)
                     == PackageManager.PERMISSION_GRANTED;
         }
         return mode == AppOpsManager.MODE_ALLOWED;
+    }
+
+    @SuppressWarnings("deprecation")
+    private int checkOpLegacy(AppOpsManager appOps) {
+        return appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                getPackageName());
     }
 
     private void showResultBanner(String message) {
@@ -653,4 +727,3 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         return String.format(Locale.US, "%d MB", Math.round(mb));
     }
 }
-=====END=====
