@@ -678,6 +678,8 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
                 boolean isLauncher = !defaultLauncherPackage.isEmpty() && defaultLauncherPackage.equals(pkg);
                 boolean isStopped = (appInfo.flags & ApplicationInfo.FLAG_STOPPED) != 0;
+                boolean isForceStopped = isStopped || forceStoppedSnapshot.contains(pkg);
+
                 Long lastUsedObj = recentUsageMap.get(pkg);
                 long lastUsed = lastUsedObj != null ? lastUsedObj : 0L;
 
@@ -704,7 +706,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                         isLauncher,
                         protectedSnapshot.contains(pkg) || isLauncher,
                         killedSnapshot.contains(pkg),
-                        forceStoppedSnapshot.contains(pkg)));
+                        isForceStopped));
             }
         }
 
@@ -931,8 +933,25 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                 layoutBatchProgress.setVisibility(View.VISIBLE);
                 progressBatch.setProgress(current);
                 tvBatchProgressText.setText(getString(R.string.force_stop_progress_format, currentItem.appName, current, total));
-                currentItem.isForceStopped = true;
-                forceStoppedThisSession.add(currentItem.packageName);
+            }
+        });
+    }
+
+    @Override
+    public void onSuccessPackage(final String packageName) {
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                forceStoppedThisSession.add(packageName);
+                for (AppItem item : allLoadedApps) {
+                    if (item.packageName.equals(packageName)) {
+                        item.isForceStopped = true;
+                        break;
+                    }
+                }
                 adapter.notifyDataSetChanged();
             }
         });
@@ -949,7 +968,11 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                 layoutBatchProgress.setVisibility(View.GONE);
                 updateRamInfo();
                 applyFilterAndUpdateUi();
-                showResultBanner(getString(R.string.result_force_stopped_count, forceStoppedCount));
+                if (forceStoppedCount > 0) {
+                    showResultBanner(getString(R.string.result_force_stopped_count, forceStoppedCount));
+                } else {
+                    showResultBanner(getString(R.string.result_none_to_kill));
+                }
             }
         });
     }

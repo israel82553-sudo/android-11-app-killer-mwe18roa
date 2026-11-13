@@ -15,11 +15,12 @@ public class ForceStopManager {
 
     public interface ForceStopListener {
         void onProgress(int current, int total, AppItem currentItem);
+        void onSuccessPackage(String packageName);
         void onFinished(int forceStoppedCount);
     }
 
     private static final ForceStopManager INSTANCE = new ForceStopManager();
-    private static final long WATCHDOG_TIMEOUT_MS = 1600L;
+    private static final long WATCHDOG_TIMEOUT_MS = 2200L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<AppItem> queue = new ArrayList<>();
@@ -134,8 +135,13 @@ public class ForceStopManager {
 
         actionHandledForCurrentIndex = true;
         handler.removeCallbacks(watchdogRunnable);
-        if (success) {
+
+        if (success && currentIndex < queue.size()) {
             successCount++;
+            AppItem item = queue.get(currentIndex);
+            if (listener != null && item != null) {
+                listener.onSuccessPackage(item.packageName);
+            }
         }
 
         handler.postDelayed(new Runnable() {
@@ -147,7 +153,7 @@ public class ForceStopManager {
                 currentIndex++;
                 processNextPackage();
             }
-        }, 120L);
+        }, 150L);
     }
 
     private void processNextPackage() {

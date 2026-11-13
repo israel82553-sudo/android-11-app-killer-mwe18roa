@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
@@ -17,6 +18,7 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import java.util.List;
 import java.util.Locale;
 
 public class ForceStopAccessibilityService extends AccessibilityService {
@@ -38,7 +40,8 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             "button1",
             "com.android.settings:id/right_button",
             "com.miui.securitycenter:id/confirm",
-            "com.samsung.android.settings:id/button1"
+            "com.samsung.android.settings:id/button1",
+            "com.coloros.safecenter:id/button1"
     };
 
     private static final String[] DIALOG_TEXTS = new String[] {
@@ -96,7 +99,9 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                         }
 
                         int windowType;
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            windowType = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                             windowType = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
                         } else {
                             windowType = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
@@ -104,11 +109,12 @@ public class ForceStopAccessibilityService extends AccessibilityService {
 
                         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                                 WindowManager.LayoutParams.MATCH_PARENT,
-                                WindowManager.LayoutParams.MATCH_PARENT,
+                                WindowManager.LayoutParams.WRAP_CONTENT,
                                 windowType,
-                                WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                                 PixelFormat.TRANSLUCENT
                         );
+                        params.gravity = Gravity.TOP;
 
                         if (windowManager != null) {
                             windowManager.addView(overlayView, params);
@@ -184,10 +190,11 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                 pkgName.contains("settings") ||
                 pkgName.equals("android") ||
                 pkgName.contains("permissioncontroller") ||
-                pkgName.contains("securitycenter")) {
+                pkgName.contains("securitycenter") ||
+                pkgName.contains("packageinstaller")) {
 
             long now = SystemClock.uptimeMillis();
-            if (now - lastActionTime < 120L) {
+            if (now - lastActionTime < 250L) {
                 return;
             }
 
@@ -210,7 +217,12 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                 if (dialogButton.isEnabled()) {
                     if (performClickNode(dialogButton)) {
                         lastActionTime = SystemClock.uptimeMillis();
-                        performGlobalAction(GLOBAL_ACTION_BACK);
+                        mainHandler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                performGlobalAction(GLOBAL_ACTION_BACK);
+                            }
+                        }, 150L);
                         manager.onCurrentAppActionCompleted(true);
                         return;
                     }
@@ -227,7 +239,12 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                 if (!forceStopBtn.isEnabled()) {
                     // Already force stopped!
                     lastActionTime = SystemClock.uptimeMillis();
-                    performGlobalAction(GLOBAL_ACTION_BACK);
+                    mainHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            performGlobalAction(GLOBAL_ACTION_BACK);
+                        }
+                    }, 150L);
                     manager.onCurrentAppActionCompleted(true);
                 } else {
                     if (performClickNode(forceStopBtn)) {
@@ -245,31 +262,30 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             return null;
         }
 
-        if (ids != null && root.getViewIdResourceName() != null) {
-            String resId = root.getViewIdResourceName();
+        if (ids != null) {
             for (String id : ids) {
-                if (resId.equalsIgnoreCase(id) || resId.endsWith(":id/" + id)) {
-                    return AccessibilityNodeInfo.obtain(root);
+                List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(id);
+                if (nodes != null && !nodes.isEmpty()) {
+                    AccessibilityNodeInfo target = null;
+                    for (AccessibilityNodeInfo n : nodes) {
+                        if (n != null && n.isEnabled()) {
+                            target = n;
+                            break;
+                        }
+                    }
+                    if (target == null) {
+                        target = nodes.get(0);
+                    }
+                    for (AccessibilityNodeInfo n : nodes) {
+                        if (n != target) n.recycle();
+                    }
+                    if (target != null) return target;
                 }
             }
         }
 
-        if (texts != null && root.getText() != null) {
-            String text = root.getText().toString().trim().toLowerCase(Locale.getDefault());
-            for (String t : texts) {
-                if (text.equals(t.toLowerCase(Locale.getDefault())) || text.contains(t.toLowerCase(Locale.getDefault()))) {
-                    return AccessibilityNodeInfo.obtain(root);
-                }
-            }
-        }
-
-        if (texts != null && root.getContentDescription() != null) {
-            String desc = root.getContentDescription().toString().trim().toLowerCase(Locale.getDefault());
-            for (String t : texts) {
-                if (desc.contains(t.toLowerCase(Locale.getDefault()))) {
-                    return AccessibilityNodeInfo.obtain(root);
-                }
-            }
+        if (matchesNode(root, ids, texts)) {
+            return AccessibilityNodeInfo.obtain(root);
         }
 
         int childCount = root.getChildCount();
@@ -284,6 +300,37 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             }
         }
         return null;
+    }
+
+    private boolean matchesNode(AccessibilityNodeInfo node, String[] ids, String[] texts) {
+        if (node == null) return false;
+        if (ids != null && node.getViewIdResourceName() != null) {
+            String resId = node.getViewIdResourceName();
+            for (String id : ids) {
+                if (resId.equalsIgnoreCase(id) || resId.endsWith(":id/" + id)) {
+                    return true;
+                }
+            }
+        }
+        if (texts != null && node.getText() != null) {
+            String text = node.getText().toString().trim().toLowerCase(Locale.getDefault());
+            for (String t : texts) {
+                String tLower = t.toLowerCase(Locale.getDefault());
+                if (text.equals(tLower) || text.contains(tLower)) {
+                    return true;
+                }
+            }
+        }
+        if (texts != null && node.getContentDescription() != null) {
+            String desc = node.getContentDescription().toString().trim().toLowerCase(Locale.getDefault());
+            for (String t : texts) {
+                String tLower = t.toLowerCase(Locale.getDefault());
+                if (desc.contains(tLower)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean performClickNode(AccessibilityNodeInfo node) {
