@@ -3,6 +3,7 @@
     <string name="app_name">סוגר האפליקציות</string>
     <string name="app_subtitle">עצירה כפויה וניקוי תהליכים • אנדרואיד 11+</string>
     <string name="ram_title">זיכרון RAM</string>
+    <string name="ram_mini_format">פנוי %s</string>
     <string name="ram_used_format">%1$s בשימוש מתוך %2$s</string>
     <string name="ram_free_format">%1$s פנוי (%2$d%%)</string>
     <string name="btn_quick_boost">ניקוי מהיר</string>

@@ -1,7 +1,6 @@
 package com.generated.app;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.view.LayoutInflater;
@@ -175,7 +174,7 @@ public class AppListAdapter extends BaseAdapter {
         gd.setShape(GradientDrawable.RECTANGLE);
         gd.setColor(fillColor);
         float density = context.getResources().getDisplayMetrics().density;
-        gd.setCornerRadius(14 * density);
+        gd.setCornerRadius(12 * density);
         gd.setStroke((int) (1 * density), strokeColor);
         return gd;
     }

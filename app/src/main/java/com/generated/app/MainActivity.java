@@ -74,11 +74,14 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private LinearLayout layoutHeader;
     private ImageButton btnThemeToggle;
     private ImageButton btnRefresh;
+    private TextView tvHeaderRamMini;
+    private TextView tvRamTitle;
     private Button btnQuickBoost;
     private TextView tvRamSummary;
     private TextView tvRamFree;
     private ProgressBar progressRam;
     private TextView tvAppCountBadge;
+    private LinearLayout cardRam;
     private LinearLayout cardUsagePermission;
     private Button btnGrantUsage;
 
@@ -137,7 +140,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         packageManager = getPackageManager();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-        // Detect auto system dark mode or stored preference
+        // Detect system dark mode or stored preference
         boolean systemDarkMode = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         isDarkMode = prefs.getBoolean(KEY_THEME_MODE, systemDarkMode);
 
@@ -213,16 +216,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         layoutHeader = findViewById(R.id.layoutHeader);
         btnThemeToggle = findViewById(R.id.btnThemeToggle);
         btnRefresh = findViewById(R.id.btnRefresh);
-        btnQuickBoost = findViewById(R.id.btnQuickBoost);
-        tvRamSummary = findViewById(R.id.tvRamSummary);
-        tvRamFree = findViewById(R.id.tvRamFree);
-        progressRam = findViewById(R.id.progressRam);
-        tvAppCountBadge = findViewById(R.id.tvAppCountBadge);
-        cardUsagePermission = findViewById(R.id.cardUsagePermission);
-        btnGrantUsage = findViewById(R.id.btnGrantUsage);
-
-        cardAccessibilityPermission = findViewById(R.id.cardAccessibilityPermission);
-        btnGrantAccessibility = findViewById(R.id.btnGrantAccessibility);
+        tvHeaderRamMini = findViewById(R.id.tvHeaderRamMini);
 
         btnModeForceStop = findViewById(R.id.btnModeForceStop);
         btnModeQuickKill = findViewById(R.id.btnModeQuickKill);
@@ -248,18 +242,36 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         tvBatchProgressText = findViewById(R.id.tvBatchProgressText);
         progressBatch = findViewById(R.id.progressBatch);
         btnCancelBatch = findViewById(R.id.btnCancelBatch);
+
+        // Inflate scrollable header view into ListView so RAM Card and Permission Banners scroll smoothly without occupying fixed screen space on small screens
+        View headerView = getLayoutInflater().inflate(R.layout.header_main, lvApps, false);
+        cardRam = headerView.findViewById(R.id.layoutRamCard);
+        tvRamTitle = headerView.findViewById(R.id.tvRamTitle);
+        tvRamSummary = headerView.findViewById(R.id.tvRamSummary);
+        tvRamFree = headerView.findViewById(R.id.tvRamFree);
+        progressRam = headerView.findViewById(R.id.progressRam);
+        btnQuickBoost = headerView.findViewById(R.id.btnQuickBoost);
+        tvAppCountBadge = headerView.findViewById(R.id.tvAppCountBadge);
+        cardUsagePermission = headerView.findViewById(R.id.cardUsagePermission);
+        btnGrantUsage = headerView.findViewById(R.id.btnGrantUsage);
+
+        cardAccessibilityPermission = headerView.findViewById(R.id.cardAccessibilityPermission);
+        btnGrantAccessibility = headerView.findViewById(R.id.btnGrantAccessibility);
+
+        lvApps.addHeaderView(headerView, null, false);
     }
 
     private void adaptSmallScreenDimensions() {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         float dpHeight = metrics.heightPixels / metrics.density;
 
-        // If on small screen device (< 650dp height), optimize vertical padding dynamically
         if (dpHeight < 650) {
             float density = metrics.density;
-            layoutHeader.setPadding((int) (12 * density), (int) (8 * density), (int) (12 * density), (int) (10 * density));
-            findViewById(R.id.layoutRamCard).setPadding((int) (10 * density), (int) (8 * density), (int) (10 * density), (int) (8 * density));
-            layoutBottomBar.setPadding((int) (12 * density), (int) (6 * density), (int) (12 * density), (int) (8 * density));
+            layoutHeader.setPadding((int) (10 * density), (int) (6 * density), (int) (10 * density), (int) (6 * density));
+            layoutBottomBar.setPadding((int) (10 * density), (int) (4 * density), (int) (10 * density), (int) (6 * density));
+            if (cardRam != null) {
+                cardRam.setPadding((int) (8 * density), (int) (6 * density), (int) (8 * density), (int) (6 * density));
+            }
             tvFooterNote.setVisibility(View.GONE);
         }
     }
@@ -281,16 +293,24 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         rootView.setBackgroundColor(bgColor);
 
         // Header shape
-        layoutHeader.setBackground(createRoundedDrawable(headerBgColor, 0, 0, 20));
+        layoutHeader.setBackground(createRoundedDrawable(headerBgColor, 0, 0, 16));
 
         // Tab container background
         int tabContainerColor = isDarkMode ? getCompatColor(R.color.bg_control_dark) : getCompatColor(R.color.bg_control_light);
-        layoutTabContainer.setBackground(createRoundedDrawable(tabContainerColor, 0, 0, 12));
+        layoutTabContainer.setBackground(createRoundedDrawable(tabContainerColor, 0, 0, 10));
 
         // Search container
-        layoutSearchContainer.setBackground(createRoundedDrawable(cardBgColor, borderSubtleColor, 1, 12));
+        layoutSearchContainer.setBackground(createRoundedDrawable(cardBgColor, borderSubtleColor, 1, 10));
         etSearch.setTextColor(textPrimary);
         etSearch.setHintTextColor(getCompatColor(R.color.text_muted));
+
+        // RAM Card styling
+        if (cardRam != null) {
+            cardRam.setBackground(createRoundedDrawable(isDarkMode ? 0xFF1E293B : 0xFFFFFFFF, isDarkMode ? 0xFF334155 : 0xFFE2E8F0, 1, 12));
+            tvRamTitle.setTextColor(isDarkMode ? 0xFFE2E8F0 : 0xFF0F172A);
+            tvRamSummary.setTextColor(isDarkMode ? 0xFF94A3B8 : 0xFF64748B);
+            tvAppCountBadge.setTextColor(isDarkMode ? 0xFFCBD5E1 : 0xFF475569);
+        }
 
         // Bottom bar
         layoutBottomBar.setBackgroundColor(cardBgColor);
@@ -527,6 +547,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         progressRam.setProgress(usedPercent);
         tvRamSummary.setText(getString(R.string.ram_used_format, formatBytes(used), formatBytes(total)));
         tvRamFree.setText(getString(R.string.ram_free_format, formatBytes(avail), freePercent));
+        tvHeaderRamMini.setText(getString(R.string.ram_mini_format, formatBytes(avail)));
     }
 
     private void loadAppsAsync(final boolean showSpinner) {

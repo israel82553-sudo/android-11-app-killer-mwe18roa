@@ -32,7 +32,7 @@
     <color name="success_tint">#ECFDF5</color>
     <color name="text_muted">#94A3B8</color>
 
-    <!-- Default Theme Mappings (Used as initial references) -->
+    <!-- Default Theme Mappings -->
     <color name="bg_screen">#F8FAFC</color>
     <color name="bg_header">#0F172A</color>
     <color name="bg_card">#FFFFFF</color>

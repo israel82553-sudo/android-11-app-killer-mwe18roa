@@ -7,21 +7,21 @@
     android:gravity="center_vertical"
     android:layoutDirection="rtl"
     android:orientation="horizontal"
-    android:paddingStart="10dp"
-    android:paddingTop="10dp"
-    android:paddingEnd="10dp"
-    android:paddingBottom="10dp">
+    android:paddingStart="8dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="8dp">
 
     <ImageView
         android:id="@+id/ivAppIcon"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:scaleType="fitCenter" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
+        android:layout_marginStart="8dp"
         android:layout_marginEnd="4dp"
         android:layout_weight="1"
         android:orientation="vertical">
@@ -34,67 +34,66 @@
             android:maxLines="1"
             android:textAlignment="viewStart"
             android:textColor="@color/text_primary"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvAppStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textAlignment="viewStart"
             android:textColor="@color/text_secondary"
-            android:textSize="11sp" />
+            android:textSize="10sp" />
 
         <TextView
             android:id="@+id/tvStatusBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:paddingStart="6dp"
-            android:paddingTop="2dp"
-            android:paddingEnd="6dp"
-            android:paddingBottom="2dp"
-            android:textSize="10sp"
+            android:layout_marginTop="2dp"
+            android:paddingStart="5dp"
+            android:paddingTop="1dp"
+            android:paddingEnd="5dp"
+            android:paddingBottom="1dp"
+            android:textSize="9sp"
             android:textStyle="bold"
             android:visibility="gone" />
     </LinearLayout>
 
     <ImageButton
         android:id="@+id/btnProtect"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/cd_protect"
-        android:padding="8dp"
+        android:padding="6dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_shield_outline" />
 
     <ImageButton
         android:id="@+id/btnAppInfo"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/cd_app_info"
-        android:padding="8dp"
+        android:padding="6dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_info" />
 
     <TextView
         android:id="@+id/btnKillSingle"
         android:layout_width="wrap_content"
-        android:layout_height="34dp"
+        android:layout_height="30dp"
         android:layout_marginStart="2dp"
         android:background="@drawable/bg_btn_kill_small"
         android:gravity="center"
-        android:minWidth="54dp"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
+        android:minWidth="50dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:text="@string/btn_kill_single"
         android:textColor="@color/danger_rose"
-        android:textSize="12sp"
+        android:textSize="11sp"
         android:textStyle="bold" />
 
 </LinearLayout>
