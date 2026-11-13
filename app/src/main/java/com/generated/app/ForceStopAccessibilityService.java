@@ -33,6 +33,33 @@ public class ForceStopAccessibilityService extends AccessibilityService {
     private Button btnOverlayCancel;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    private static final String[] DIALOG_IDS = new String[] {
+            "android:id/button1",
+            "button1",
+            "com.android.settings:id/right_button",
+            "com.miui.securitycenter:id/confirm",
+            "com.samsung.android.settings:id/button1"
+    };
+
+    private static final String[] DIALOG_TEXTS = new String[] {
+            "אישור", "עצירה כפויה", "עצור", "סגור", "כן", "OK", "Ok", "Force stop", "Yes", "Confirm", "ОК", "موافق"
+    };
+
+    private static final String[] FORCE_STOP_IDS = new String[] {
+            "com.android.settings:id/force_stop_button",
+            "force_stop_button",
+            "com.samsung.android.settings:id/force_stop_button",
+            "com.huawei.systemmanager:id/btn_force_stop",
+            "right_button",
+            "left_button",
+            "button1"
+    };
+
+    private static final String[] FORCE_STOP_TEXTS = new String[] {
+            "עצירה כפויה", "עצור כעת", "עצור תהליך", "עצירה", "סגירה כפויה",
+            "Force stop", "FORCE STOP", "Force Stop", "Stop", "Остановить", "إيقاف إجباري"
+    };
+
     public static ForceStopAccessibilityService getInstance() {
         return instance;
     }
@@ -80,7 +107,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                                 WindowManager.LayoutParams.MATCH_PARENT,
                                 windowType,
                                 WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                                PixelFormat.OPAQUE
+                                PixelFormat.TRANSLUCENT
                         );
 
                         if (windowManager != null) {
@@ -121,12 +148,15 @@ public class ForceStopAccessibilityService extends AccessibilityService {
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
-                if (overlayView != null && windowManager != null) {
+                if (overlayView != null) {
                     try {
-                        windowManager.removeView(overlayView);
+                        if (windowManager != null) {
+                            windowManager.removeView(overlayView);
+                        }
                     } catch (Exception ignored) {
+                    } finally {
+                        overlayView = null;
                     }
-                    overlayView = null;
                 }
             }
         });
@@ -157,7 +187,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                 pkgName.contains("securitycenter")) {
 
             long now = SystemClock.uptimeMillis();
-            if (now - lastActionTime < 100L) {
+            if (now - lastActionTime < 120L) {
                 return;
             }
 
@@ -174,49 +204,38 @@ public class ForceStopAccessibilityService extends AccessibilityService {
 
     private void processWindow(AccessibilityNodeInfo root, ForceStopManager manager) {
         // Step 1: Check for Confirmation Dialog first
-        String[] dialogIds = new String[] {
-                "android:id/button1",
-                "button1",
-                "com.android.settings:id/right_button",
-                "com.miui.securitycenter:id/confirm"
-        };
-        String[] dialogTexts = new String[] {
-                "אישור", "עצירה כפויה", "עצור", "סגור", "כן", "OK", "Ok", "Force stop", "Yes", "Confirm"
-        };
-
-        AccessibilityNodeInfo dialogButton = findNodeByTextsOrIds(root, dialogIds, dialogTexts);
-        if (dialogButton != null && dialogButton.isEnabled()) {
-            if (performClickNode(dialogButton)) {
-                lastActionTime = SystemClock.uptimeMillis();
-                performGlobalAction(GLOBAL_ACTION_BACK);
-                manager.onCurrentAppActionCompleted(true);
-                return;
+        AccessibilityNodeInfo dialogButton = findNodeByTextsOrIds(root, DIALOG_IDS, DIALOG_TEXTS);
+        if (dialogButton != null) {
+            try {
+                if (dialogButton.isEnabled()) {
+                    if (performClickNode(dialogButton)) {
+                        lastActionTime = SystemClock.uptimeMillis();
+                        performGlobalAction(GLOBAL_ACTION_BACK);
+                        manager.onCurrentAppActionCompleted(true);
+                        return;
+                    }
+                }
+            } finally {
+                dialogButton.recycle();
             }
         }
 
         // Step 2: Check for Force Stop button in App Info
-        String[] forceStopIds = new String[] {
-                "com.android.settings:id/force_stop_button",
-                "force_stop_button",
-                "right_button",
-                "left_button",
-                "button1"
-        };
-        String[] forceStopTexts = new String[] {
-                "עצירה כפויה", "עצור כעת", "עצור תהליך", "עצירה", "סגירה כפויה", "Force stop", "FORCE STOP", "Stop"
-        };
-
-        AccessibilityNodeInfo forceStopBtn = findNodeByTextsOrIds(root, forceStopIds, forceStopTexts);
+        AccessibilityNodeInfo forceStopBtn = findNodeByTextsOrIds(root, FORCE_STOP_IDS, FORCE_STOP_TEXTS);
         if (forceStopBtn != null) {
-            if (!forceStopBtn.isEnabled()) {
-                // Already force stopped!
-                lastActionTime = SystemClock.uptimeMillis();
-                performGlobalAction(GLOBAL_ACTION_BACK);
-                manager.onCurrentAppActionCompleted(true);
-            } else {
-                if (performClickNode(forceStopBtn)) {
+            try {
+                if (!forceStopBtn.isEnabled()) {
+                    // Already force stopped!
                     lastActionTime = SystemClock.uptimeMillis();
+                    performGlobalAction(GLOBAL_ACTION_BACK);
+                    manager.onCurrentAppActionCompleted(true);
+                } else {
+                    if (performClickNode(forceStopBtn)) {
+                        lastActionTime = SystemClock.uptimeMillis();
+                    }
                 }
+            } finally {
+                forceStopBtn.recycle();
             }
         }
     }
@@ -230,7 +249,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             String resId = root.getViewIdResourceName();
             for (String id : ids) {
                 if (resId.equalsIgnoreCase(id) || resId.endsWith(":id/" + id)) {
-                    return root;
+                    return AccessibilityNodeInfo.obtain(root);
                 }
             }
         }
@@ -239,7 +258,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             String text = root.getText().toString().trim().toLowerCase(Locale.getDefault());
             for (String t : texts) {
                 if (text.equals(t.toLowerCase(Locale.getDefault())) || text.contains(t.toLowerCase(Locale.getDefault()))) {
-                    return root;
+                    return AccessibilityNodeInfo.obtain(root);
                 }
             }
         }
@@ -248,7 +267,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             String desc = root.getContentDescription().toString().trim().toLowerCase(Locale.getDefault());
             for (String t : texts) {
                 if (desc.contains(t.toLowerCase(Locale.getDefault()))) {
-                    return root;
+                    return AccessibilityNodeInfo.obtain(root);
                 }
             }
         }
@@ -258,6 +277,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
             AccessibilityNodeInfo child = root.getChild(i);
             if (child != null) {
                 AccessibilityNodeInfo result = findNodeByTextsOrIds(child, ids, texts);
+                child.recycle();
                 if (result != null) {
                     return result;
                 }
@@ -276,9 +296,13 @@ public class ForceStopAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo parent = node.getParent();
         while (parent != null) {
             if (parent.isClickable()) {
-                return parent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                boolean clicked = parent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                parent.recycle();
+                return clicked;
             }
+            AccessibilityNodeInfo temp = parent;
             parent = parent.getParent();
+            temp.recycle();
         }
         return false;
     }

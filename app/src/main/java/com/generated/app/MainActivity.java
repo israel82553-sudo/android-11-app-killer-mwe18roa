@@ -140,7 +140,6 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         packageManager = getPackageManager();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-        // Detect system dark mode or stored preference
         boolean systemDarkMode = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         isDarkMode = prefs.getBoolean(KEY_THEME_MODE, systemDarkMode);
 
@@ -243,7 +242,6 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         progressBatch = findViewById(R.id.progressBatch);
         btnCancelBatch = findViewById(R.id.btnCancelBatch);
 
-        // Inflate scrollable header view into ListView so RAM Card and Permission Banners scroll smoothly without occupying fixed screen space on small screens
         View headerView = getLayoutInflater().inflate(R.layout.header_main, lvApps, false);
         cardRam = headerView.findViewById(R.id.layoutRamCard);
         tvRamTitle = headerView.findViewById(R.id.tvRamTitle);
@@ -292,19 +290,15 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
         rootView.setBackgroundColor(bgColor);
 
-        // Header shape
         layoutHeader.setBackground(createRoundedDrawable(headerBgColor, 0, 0, 16));
 
-        // Tab container background
         int tabContainerColor = isDarkMode ? getCompatColor(R.color.bg_control_dark) : getCompatColor(R.color.bg_control_light);
         layoutTabContainer.setBackground(createRoundedDrawable(tabContainerColor, 0, 0, 10));
 
-        // Search container
         layoutSearchContainer.setBackground(createRoundedDrawable(cardBgColor, borderSubtleColor, 1, 10));
         etSearch.setTextColor(textPrimary);
         etSearch.setHintTextColor(getCompatColor(R.color.text_muted));
 
-        // RAM Card styling
         if (cardRam != null) {
             cardRam.setBackground(createRoundedDrawable(isDarkMode ? 0xFF1E293B : 0xFFFFFFFF, isDarkMode ? 0xFF334155 : 0xFFE2E8F0, 1, 12));
             tvRamTitle.setTextColor(isDarkMode ? 0xFFE2E8F0 : 0xFF0F172A);
@@ -312,7 +306,6 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
             tvAppCountBadge.setTextColor(isDarkMode ? 0xFFCBD5E1 : 0xFF475569);
         }
 
-        // Bottom bar
         layoutBottomBar.setBackgroundColor(cardBgColor);
         tvEmptyMessage.setTextColor(textSecondary);
 
@@ -604,26 +597,26 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                 long endTime = System.currentTimeMillis();
                 long beginTime = endTime - RECENT_WINDOW_MS;
 
-                List<UsageStats> statsList = usm.queryUsageStats(
-                        UsageStatsManager.INTERVAL_BEST, beginTime, endTime);
-                if (statsList != null) {
-                    for (UsageStats stats : statsList) {
-                        if (stats != null) {
-                            long lastUsed = stats.getLastTimeUsed();
-                            if (lastUsed >= beginTime && lastUsed <= endTime + 60000L) {
-                                String pkg = stats.getPackageName();
-                                if (pkg != null) {
-                                    Long existing = recentUsageMap.get(pkg);
-                                    if (existing == null || lastUsed > existing) {
-                                        recentUsageMap.put(pkg, lastUsed);
+                try {
+                    List<UsageStats> statsList = usm.queryUsageStats(
+                            UsageStatsManager.INTERVAL_BEST, beginTime, endTime);
+                    if (statsList != null) {
+                        for (UsageStats stats : statsList) {
+                            if (stats != null) {
+                                long lastUsed = stats.getLastTimeUsed();
+                                if (lastUsed >= beginTime && lastUsed <= endTime + 60000L) {
+                                    String pkg = stats.getPackageName();
+                                    if (pkg != null) {
+                                        Long existing = recentUsageMap.get(pkg);
+                                        if (existing == null || lastUsed > existing) {
+                                            recentUsageMap.put(pkg, lastUsed);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                try {
                     UsageEvents events = usm.queryEvents(beginTime, endTime);
                     if (events != null) {
                         UsageEvents.Event event = new UsageEvents.Event();
@@ -828,9 +821,11 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         int count = adapter.getCount();
         for (int i = 0; i < count; i++) {
             AppItem item = adapter.getItem(i);
-            boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
-            if (!item.isProtected && !isAlreadyStopped) {
-                targets.add(item);
+            if (item != null) {
+                boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
+                if (!item.isProtected && !isAlreadyStopped) {
+                    targets.add(item);
+                }
             }
         }
 
@@ -856,9 +851,11 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         int count = adapter.getCount();
         for (int i = 0; i < count; i++) {
             AppItem item = adapter.getItem(i);
-            boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
-            if (!item.isProtected && !isAlreadyStopped) {
-                targets.add(item);
+            if (item != null) {
+                boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
+                if (!item.isProtected && !isAlreadyStopped) {
+                    targets.add(item);
+                }
             }
         }
 
@@ -959,7 +956,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     @Override
     public void onKillSingle(AppItem item) {
-        if (item.isProtected || item.isForceStopped || item.isKilled || item.isStopped) {
+        if (item == null || item.isProtected || item.isForceStopped || item.isKilled || item.isStopped) {
             return;
         }
 
@@ -991,6 +988,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     @Override
     public void onToggleProtect(AppItem item) {
+        if (item == null) return;
         if (item.isLauncher) {
             Toast.makeText(this, R.string.toast_launcher_protected, Toast.LENGTH_SHORT).show();
             return;
@@ -1011,6 +1009,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     @Override
     public void onOpenAppInfo(AppItem item) {
+        if (item == null) return;
         try {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent.setData(Uri.fromParts("package", item.packageName, null));
@@ -1044,24 +1043,28 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     }
 
     private boolean hasUsageStatsPermission() {
-        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-        if (appOps == null) {
+        try {
+            AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+            if (appOps == null) {
+                return false;
+            }
+            int mode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mode = appOps.unsafeCheckOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        android.os.Process.myUid(),
+                        getPackageName());
+            } else {
+                mode = checkOpLegacy(appOps);
+            }
+            if (mode == AppOpsManager.MODE_DEFAULT) {
+                return checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS)
+                        == PackageManager.PERMISSION_GRANTED;
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (Exception ignored) {
             return false;
         }
-        int mode;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            mode = appOps.unsafeCheckOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    android.os.Process.myUid(),
-                    getPackageName());
-        } else {
-            mode = checkOpLegacy(appOps);
-        }
-        if (mode == AppOpsManager.MODE_DEFAULT) {
-            return checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS)
-                    == PackageManager.PERMISSION_GRANTED;
-        }
-        return mode == AppOpsManager.MODE_ALLOWED;
     }
 
     @SuppressWarnings("deprecation")

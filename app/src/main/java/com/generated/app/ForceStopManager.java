@@ -19,7 +19,7 @@ public class ForceStopManager {
     }
 
     private static final ForceStopManager INSTANCE = new ForceStopManager();
-    private static final long WATCHDOG_TIMEOUT_MS = 1400L;
+    private static final long WATCHDOG_TIMEOUT_MS = 1600L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<AppItem> queue = new ArrayList<>();
@@ -27,6 +27,7 @@ public class ForceStopManager {
     private Context appContext;
     private ForceStopListener listener;
     private boolean isProcessing = false;
+    private boolean actionHandledForCurrentIndex = false;
     private int currentIndex = 0;
     private int successCount = 0;
 
@@ -47,21 +48,30 @@ public class ForceStopManager {
     }
 
     public static boolean isAccessibilityEnabled(Context context) {
-        ComponentName expectedComponentName = new ComponentName(context, ForceStopAccessibilityService.class);
-        String enabledServicesSetting = Settings.Secure.getString(
-                context.getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (enabledServicesSetting == null) {
+        if (context == null) {
             return false;
         }
-
-        String expected1 = expectedComponentName.flattenToString();
-        String expected2 = expectedComponentName.flattenToShortString();
-
-        for (String service : enabledServicesSetting.split(":")) {
-            if (service.equalsIgnoreCase(expected1) || service.equalsIgnoreCase(expected2)) {
-                return true;
+        if (ForceStopAccessibilityService.getInstance() != null) {
+            return true;
+        }
+        try {
+            ComponentName expectedComponentName = new ComponentName(context, ForceStopAccessibilityService.class);
+            String enabledServicesSetting = Settings.Secure.getString(
+                    context.getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (enabledServicesSetting == null) {
+                return false;
             }
+
+            String expected1 = expectedComponentName.flattenToString();
+            String expected2 = expectedComponentName.flattenToShortString();
+
+            for (String service : enabledServicesSetting.split(":")) {
+                if (service.equalsIgnoreCase(expected1) || service.equalsIgnoreCase(expected2)) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
         }
         return false;
     }
@@ -84,6 +94,7 @@ public class ForceStopManager {
         this.queue.addAll(items);
         this.currentIndex = 0;
         this.successCount = 0;
+        this.actionHandledForCurrentIndex = false;
         this.isProcessing = true;
 
         ForceStopAccessibilityService service = ForceStopAccessibilityService.getInstance();
@@ -117,10 +128,11 @@ public class ForceStopManager {
     }
 
     public synchronized void onCurrentAppActionCompleted(boolean success) {
-        if (!isProcessing) {
+        if (!isProcessing || actionHandledForCurrentIndex) {
             return;
         }
 
+        actionHandledForCurrentIndex = true;
         handler.removeCallbacks(watchdogRunnable);
         if (success) {
             successCount++;
@@ -135,7 +147,7 @@ public class ForceStopManager {
                 currentIndex++;
                 processNextPackage();
             }
-        }, 100L);
+        }, 120L);
     }
 
     private void processNextPackage() {
@@ -144,6 +156,7 @@ public class ForceStopManager {
             return;
         }
 
+        actionHandledForCurrentIndex = false;
         AppItem item = queue.get(currentIndex);
 
         ForceStopAccessibilityService service = ForceStopAccessibilityService.getInstance();
@@ -158,7 +171,7 @@ public class ForceStopManager {
         try {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent.setData(Uri.fromParts("package", item.packageName, null));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION);
             appContext.startActivity(intent);
         } catch (Exception e) {
             onCurrentAppActionCompleted(false);

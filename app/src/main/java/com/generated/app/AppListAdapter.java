@@ -43,7 +43,9 @@ public class AppListAdapter extends BaseAdapter {
 
     public void setItems(List<AppItem> newItems) {
         items.clear();
-        items.addAll(newItems);
+        if (newItems != null) {
+            items.addAll(newItems);
+        }
         notifyDataSetChanged();
     }
 
@@ -54,12 +56,16 @@ public class AppListAdapter extends BaseAdapter {
 
     @Override
     public AppItem getItem(int position) {
-        return items.get(position);
+        if (position >= 0 && position < items.size()) {
+            return items.get(position);
+        }
+        return null;
     }
 
     @Override
     public long getItemId(int position) {
-        return items.get(position).packageName.hashCode();
+        AppItem item = getItem(position);
+        return item != null ? item.packageName.hashCode() : position;
     }
 
     @Override
@@ -73,12 +79,20 @@ public class AppListAdapter extends BaseAdapter {
             holder = (ViewHolder) convertView.getTag();
         }
 
-        final AppItem item = items.get(position);
-        holder.ivAppIcon.setImageDrawable(item.icon);
+        final AppItem item = getItem(position);
+        if (item == null) {
+            return convertView;
+        }
+
+        if (item.icon != null) {
+            holder.ivAppIcon.setImageDrawable(item.icon);
+        } else {
+            holder.ivAppIcon.setImageDrawable(context.getPackageManager().getDefaultActivityIcon());
+        }
+
         holder.tvAppName.setText(item.appName);
         holder.tvAppStatus.setText(buildSubtitle(item));
 
-        // Dark vs Light Mode Card Background & Text
         if (isDarkMode) {
             holder.layoutCard.setBackground(createCardDrawable(0xFF1E293B, 0xFF334155));
             holder.tvAppName.setTextColor(0xFFF8FAFC);

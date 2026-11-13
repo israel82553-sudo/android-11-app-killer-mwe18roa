@@ -10,29 +10,29 @@
         android:fillColor="#0F172A"
         android:pathData="M24,6 L72,6 Q90,6 90,24 L90,72 Q90,90 72,90 L24,90 Q6,90 6,72 L6,24 Q6,6 24,6 Z" />
 
-    <!-- Glowing Teal Accent Ring -->
+    <!-- Outer Glowing Teal Ring -->
     <path
         android:fillColor="#0F766E"
         android:pathData="M48,14 A34,34 0 1,0 48,82 A34,34 0 1,0 48,14 Z" />
 
-    <!-- Inner Midnight Core -->
+    <!-- Inner Core Dark Plate -->
     <path
         android:fillColor="#1E293B"
         android:pathData="M48,22 A26,26 0 1,0 48,74 A26,26 0 1,0 48,22 Z" />
 
-    <!-- Shield Emblem Background -->
+    <!-- Main Shield Emblem -->
     <path
         android:fillColor="#14B8A6"
         android:pathData="M48,27 L33,34 V48 C33,58 39.5,67 48,70 C56.5,67 63,58 63,48 V34 L48,27 Z" />
 
-    <!-- Lightning Bolt Core Symbol -->
+    <!-- Lightning Fast Action Glyph -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M50,33 L37,49 L47,49 L44,63 L60,45 L49,45 Z" />
 
-    <!-- Rose Accent Corner Dot -->
+    <!-- Active Indicator Badge -->
     <path
-        android:fillColor="#F43F5E"
+        android:fillColor="#E11D48"
         android:pathData="M76,20 A5,5 0 1,0 76,30 A5,5 0 1,0 76,20 Z" />
 
 </vector>
