@@ -125,10 +125,25 @@
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
+                <Button
+                    android:id="@+id/btnQuickBoost"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_btn_boost"
+                    android:minWidth="0dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="@string/btn_quick_boost"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
                 <TextView
                     android:id="@+id/tvRamFree"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:textColor="#2DD4BF"
                     android:textSize="13sp"
                     android:textStyle="bold" />

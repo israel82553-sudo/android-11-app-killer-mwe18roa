@@ -5,6 +5,7 @@
     <string name="ram_title">זיכרון המכשיר (RAM)</string>
     <string name="ram_used_format">%1$s בשימוש מתוך %2$s</string>
     <string name="ram_free_format">%1$s פנוי (%2$d%%)</string>
+    <string name="btn_quick_boost">ניקוי מהיר</string>
     <string name="apps_count_format">%d אפליקציות</string>
     <string name="apps_count_with_protected_format">%1$d אפליקציות • %2$d מוגנות</string>
     <string name="mode_force_stop">עצירה כפויה מלאה (נגישות)</string>
@@ -38,6 +39,7 @@
     <string name="status_used_days">פעלה לפני %d ימים</string>
     <string name="status_installed">אפליקציה מותקנת</string>
     <string name="status_system_app">אפליקציית מערכת</string>
+    <string name="status_launcher_app">מסך הבית (מוגן)</string>
     <string name="empty_recent_no_perm">אשר גישת שימוש למעלה כדי לזהות אפליקציות שפעלו לאחרונה, או עבור ללשונית "כל האפליקציות".</string>
     <string name="empty_recent_none">לא נמצאו אפליקציות שפעלו לאחרונה.</string>
     <string name="empty_all_none">לא נמצאו אפליקציות מותקנות.</string>
@@ -52,6 +54,7 @@
     <string name="toast_single_guided_force_stop">פתח עמוד הגדרות לביצוע עצירה כפויה עבור %s</string>
     <string name="toast_protected">%s הוגנה מפני סגירה גורפת</string>
     <string name="toast_unprotected">%s הוסרה מרשימת ההגנה</string>
+    <string name="toast_launcher_protected">אפליקציית מסך הבית מוגנת אוטומטית</string>
     <string name="toast_accessibility_required">יש להפעיל את שירות הנגישות בהגדרות כדי לעצור אפליקציות אוטומטית</string>
     <string name="android11_note">לחץ על אייקון המידע ליד אפליקציה לפתיחה ישירה של מסך ההגדרות</string>
     <string name="accessibility_service_label">סוגר האפליקציות - עצירה כפויה אוטומטית</string>

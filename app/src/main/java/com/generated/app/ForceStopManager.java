@@ -19,7 +19,7 @@ public class ForceStopManager {
     }
 
     private static final ForceStopManager INSTANCE = new ForceStopManager();
-    private static final long WATCHDOG_TIMEOUT_MS = 2000L;
+    private static final long WATCHDOG_TIMEOUT_MS = 2200L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<AppItem> queue = new ArrayList<>();
@@ -123,7 +123,7 @@ public class ForceStopManager {
                 currentIndex++;
                 processNextPackage();
             }
-        }, 220L);
+        }, 180L);
     }
 
     private void processNextPackage() {

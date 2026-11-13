@@ -9,6 +9,7 @@ public class AppItem {
     public final long lastTimeUsed;
     public final boolean isStopped;
     public final boolean isSystem;
+    public final boolean isLauncher;
     public boolean isProtected;
     public boolean isKilled;
     public boolean isForceStopped;
@@ -20,6 +21,7 @@ public class AppItem {
             long lastTimeUsed,
             boolean isStopped,
             boolean isSystem,
+            boolean isLauncher,
             boolean isProtected,
             boolean isKilled,
             boolean isForceStopped) {
@@ -29,6 +31,7 @@ public class AppItem {
         this.lastTimeUsed = lastTimeUsed;
         this.isStopped = isStopped;
         this.isSystem = isSystem;
+        this.isLauncher = isLauncher;
         this.isProtected = isProtected;
         this.isKilled = isKilled;
         this.isForceStopped = isForceStopped;

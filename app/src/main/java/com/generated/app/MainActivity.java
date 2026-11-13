@@ -66,6 +66,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private AppListAdapter adapter;
 
     private ImageButton btnRefresh;
+    private Button btnQuickBoost;
     private TextView tvRamSummary;
     private TextView tvRamFree;
     private ProgressBar progressRam;
@@ -104,6 +105,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private boolean isLoading = false;
     private boolean isKillingAll = false;
     private String searchQuery = "";
+    private String defaultLauncherPackage = "";
 
     private final Runnable hideBannerRunnable = new Runnable() {
         @Override
@@ -125,9 +127,14 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         packageManager = getPackageManager();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
+        detectDefaultLauncher();
+
         Set<String> savedProtected = prefs.getStringSet(KEY_PROTECTED, null);
         if (savedProtected != null) {
             protectedPackages.addAll(savedProtected);
+        }
+        if (!defaultLauncherPackage.isEmpty()) {
+            protectedPackages.add(defaultLauncherPackage);
         }
 
         bindViews();
@@ -170,8 +177,21 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         executor.shutdownNow();
     }
 
+    private void detectDefaultLauncher() {
+        try {
+            Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+            homeIntent.addCategory(Intent.CATEGORY_HOME);
+            ResolveInfo info = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY);
+            if (info != null && info.activityInfo != null) {
+                defaultLauncherPackage = info.activityInfo.packageName;
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     private void bindViews() {
         btnRefresh = findViewById(R.id.btnRefresh);
+        btnQuickBoost = findViewById(R.id.btnQuickBoost);
         tvRamSummary = findViewById(R.id.tvRamSummary);
         tvRamFree = findViewById(R.id.tvRamFree);
         progressRam = findViewById(R.id.progressRam);
@@ -212,6 +232,13 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                 v.animate().rotationBy(360f).setDuration(420).start();
                 updateRamInfo();
                 loadAppsAsync(true);
+            }
+        });
+
+        btnQuickBoost.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                killAllVisibleAppsQuick();
             }
         });
 
@@ -529,6 +556,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                     continue;
                 }
 
+                boolean isLauncher = !defaultLauncherPackage.isEmpty() && defaultLauncherPackage.equals(pkg);
                 boolean isStopped = (appInfo.flags & ApplicationInfo.FLAG_STOPPED) != 0;
                 Long lastUsedObj = recentUsageMap.get(pkg);
                 long lastUsed = lastUsedObj != null ? lastUsedObj : 0L;
@@ -553,7 +581,8 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                         lastUsed,
                         isStopped,
                         isSystem,
-                        protectedSnapshot.contains(pkg),
+                        isLauncher,
+                        protectedSnapshot.contains(pkg) || isLauncher,
                         killedSnapshot.contains(pkg),
                         forceStoppedSnapshot.contains(pkg)));
             }
@@ -835,6 +864,10 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     @Override
     public void onToggleProtect(AppItem item) {
+        if (item.isLauncher) {
+            Toast.makeText(this, R.string.toast_launcher_protected, Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (item.isProtected) {
             item.isProtected = false;
             protectedPackages.remove(item.packageName);

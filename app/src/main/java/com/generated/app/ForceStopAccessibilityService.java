@@ -1,6 +1,7 @@
 package com.generated.app;
 
 import android.accessibilityservice.AccessibilityService;
+import android.os.SystemClock;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -9,6 +10,7 @@ import java.util.Locale;
 public class ForceStopAccessibilityService extends AccessibilityService {
 
     private static ForceStopAccessibilityService instance;
+    private long lastActionTime = 0L;
 
     public static ForceStopAccessibilityService getInstance() {
         return instance;
@@ -43,6 +45,11 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                 pkgName.contains("permissioncontroller") ||
                 pkgName.contains("securitycenter")) {
 
+            long now = SystemClock.uptimeMillis();
+            if (now - lastActionTime < 180L) {
+                return;
+            }
+
             AccessibilityNodeInfo root = getRootInActiveWindow();
             if (root != null) {
                 try {
@@ -56,14 +63,21 @@ public class ForceStopAccessibilityService extends AccessibilityService {
 
     private void processWindow(AccessibilityNodeInfo root, ForceStopManager manager) {
         // Step 1: Check for Confirmation Dialog first
-        String[] dialogIds = new String[] { "android:id/button1", "button1" };
+        String[] dialogIds = new String[] {
+                "android:id/button1",
+                "button1",
+                "com.android.settings:id/right_button",
+                "com.miui.securitycenter:id/confirm"
+        };
         String[] dialogTexts = new String[] {
-                "אישור", "עצירה כפויה", "עצור", "OK", "Force stop", "Yes"
+                "אישור", "עצירה כפויה", "עצור", "סגור", "כן", "OK", "Ok", "Force stop", "Yes", "Confirm"
         };
 
         AccessibilityNodeInfo dialogButton = findNodeByTextsOrIds(root, dialogIds, dialogTexts);
         if (dialogButton != null && dialogButton.isEnabled()) {
             if (performClickNode(dialogButton)) {
+                lastActionTime = SystemClock.uptimeMillis();
+                performGlobalAction(GLOBAL_ACTION_BACK);
                 manager.onCurrentAppActionCompleted(true);
                 return;
             }
@@ -74,19 +88,24 @@ public class ForceStopAccessibilityService extends AccessibilityService {
                 "com.android.settings:id/force_stop_button",
                 "force_stop_button",
                 "right_button",
+                "left_button",
                 "button1"
         };
         String[] forceStopTexts = new String[] {
-                "עצירה כפויה", "עצור כעת", "עצור תהליך", "עצירה", "Force stop", "FORCE STOP"
+                "עצירה כפויה", "עצור כעת", "עצור תהליך", "עצירה", "סגירה כפויה", "Force stop", "FORCE STOP", "Stop"
         };
 
         AccessibilityNodeInfo forceStopBtn = findNodeByTextsOrIds(root, forceStopIds, forceStopTexts);
         if (forceStopBtn != null) {
             if (!forceStopBtn.isEnabled()) {
                 // Already force stopped!
+                lastActionTime = SystemClock.uptimeMillis();
+                performGlobalAction(GLOBAL_ACTION_BACK);
                 manager.onCurrentAppActionCompleted(true);
             } else {
-                performClickNode(forceStopBtn);
+                if (performClickNode(forceStopBtn)) {
+                    lastActionTime = SystemClock.uptimeMillis();
+                }
             }
         }
     }
@@ -108,7 +127,7 @@ public class ForceStopAccessibilityService extends AccessibilityService {
         if (texts != null && root.getText() != null) {
             String text = root.getText().toString().trim().toLowerCase(Locale.getDefault());
             for (String t : texts) {
-                if (text.contains(t.toLowerCase(Locale.getDefault()))) {
+                if (text.equals(t.toLowerCase(Locale.getDefault())) || text.contains(t.toLowerCase(Locale.getDefault()))) {
                     return root;
                 }
             }

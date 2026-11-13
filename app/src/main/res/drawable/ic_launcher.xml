@@ -5,24 +5,29 @@
     android:viewportWidth="96"
     android:viewportHeight="96">
 
+    <!-- Rounded Background Container -->
     <path
         android:fillColor="#0F172A"
-        android:pathData="M28,6 L68,6 Q90,6 90,28 L90,68 Q90,90 68,90 L28,90 Q6,90 6,68 L6,28 Q6,6 28,6 Z" />
+        android:pathData="M24,6 L72,6 Q90,6 90,24 L90,72 Q90,90 72,90 L24,90 Q6,90 6,72 L6,24 Q6,6 24,6 Z" />
 
+    <!-- Outer Teal Circle -->
     <path
         android:fillColor="#0F766E"
-        android:pathData="M48,18 A30,30 0 1,0 48,78 A30,30 0 1,0 48,18 Z" />
+        android:pathData="M48,16 A32,32 0 1,0 48,80 A32,32 0 1,0 48,16 Z" />
 
+    <!-- Dark Inner Core Circle -->
     <path
         android:fillColor="#134E4A"
-        android:pathData="M48,24 A24,24 0 1,0 48,72 A24,24 0 1,0 48,24 Z" />
+        android:pathData="M48,22 A26,26 0 1,0 48,74 A26,26 0 1,0 48,22 Z" />
 
+    <!-- Lightning Bolt Icon -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M53,27 L34,50 L46,50 L43,69 L62,46 L50,46 Z" />
+        android:pathData="M51,26 L32,50 L44,50 L40,70 L62,46 L50,46 Z" />
 
+    <!-- Rose Accent Badge -->
     <path
         android:fillColor="#E11D48"
-        android:pathData="M70,18 L78,26 L66,38 L78,50 L70,58 L58,46 L46,58 L38,50 L50,38 L38,26 L46,18 L58,30 Z" />
+        android:pathData="M70,18 L80,28 L68,40 L80,52 L70,62 L58,50 L46,62 L36,52 L48,40 L36,28 L46,18 L58,30 Z" />
 
 </vector>

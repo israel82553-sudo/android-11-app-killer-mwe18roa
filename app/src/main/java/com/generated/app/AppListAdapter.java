@@ -158,6 +158,9 @@ public class AppListAdapter extends BaseAdapter {
     }
 
     private String buildSubtitle(AppItem item) {
+        if (item.isLauncher) {
+            return context.getString(R.string.status_launcher_app);
+        }
         if (item.lastTimeUsed > 0L) {
             long diffMs = Math.max(0L, System.currentTimeMillis() - item.lastTimeUsed);
             long mins = diffMs / 60000L;
