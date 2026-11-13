@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">סוגר האפליקציות</string>
     <string name="app_subtitle">עצירה כפויה וניקוי תהליכים • אנדרואיד 11+</string>
-    <string name="ram_title">זיכרון המכשיר (RAM)</string>
+    <string name="ram_title">זיכרון RAM</string>
     <string name="ram_used_format">%1$s בשימוש מתוך %2$s</string>
     <string name="ram_free_format">%1$s פנוי (%2$d%%)</string>
     <string name="btn_quick_boost">ניקוי מהיר</string>
@@ -56,10 +56,13 @@
     <string name="toast_unprotected">%s הוסרה מרשימת ההגנה</string>
     <string name="toast_launcher_protected">אפליקציית מסך הבית מוגנת אוטומטית</string>
     <string name="toast_accessibility_required">יש להפעיל את שירות הנגישות בהגדרות כדי לעצור אפליקציות אוטומטית</string>
+    <string name="toast_theme_switched_dark">מצב כהה הופעל</string>
+    <string name="toast_theme_switched_light">מצב בהיר הופעל</string>
     <string name="android11_note">לחץ על אייקון המידע ליד אפליקציה לפתיחה ישירה של מסך ההגדרות</string>
     <string name="accessibility_service_label">סוגר האפליקציות - עצירה כפויה אוטומטית</string>
     <string name="accessibility_service_desc">שירות זה משמש לביצוע עצירה כפויה אוטומטית של אפליקציות מתוך מסך ההגדרות לבקשתך.</string>
     <string name="cd_refresh">רענן רשימה</string>
+    <string name="cd_theme_toggle">החלף מצב כהה/בהיר</string>
     <string name="cd_clear_search">נקה חיפוש</string>
     <string name="cd_protect">הגן על אפליקציה</string>
     <string name="cd_app_info">פרטי אפליקציה</string>

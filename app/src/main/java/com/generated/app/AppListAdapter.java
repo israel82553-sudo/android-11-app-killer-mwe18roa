@@ -1,6 +1,8 @@
 package com.generated.app;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,11 +27,19 @@ public class AppListAdapter extends BaseAdapter {
     private final LayoutInflater inflater;
     private final AppActionListener listener;
     private final List<AppItem> items = new ArrayList<>();
+    private boolean isDarkMode = false;
 
     public AppListAdapter(Context context, AppActionListener listener) {
         this.context = context;
         this.inflater = LayoutInflater.from(context);
         this.listener = listener;
+    }
+
+    public void setDarkMode(boolean isDarkMode) {
+        if (this.isDarkMode != isDarkMode) {
+            this.isDarkMode = isDarkMode;
+            notifyDataSetChanged();
+        }
     }
 
     public void setItems(List<AppItem> newItems) {
@@ -69,6 +79,17 @@ public class AppListAdapter extends BaseAdapter {
         holder.tvAppName.setText(item.appName);
         holder.tvAppStatus.setText(buildSubtitle(item));
 
+        // Dark vs Light Mode Card Background & Text
+        if (isDarkMode) {
+            holder.layoutCard.setBackground(createCardDrawable(0xFF1E293B, 0xFF334155));
+            holder.tvAppName.setTextColor(0xFFF8FAFC);
+            holder.tvAppStatus.setTextColor(0xFF94A3B8);
+        } else {
+            holder.layoutCard.setBackground(createCardDrawable(0xFFFFFFFF, 0xFFE2E8F0));
+            holder.tvAppName.setTextColor(0xFF0F172A);
+            holder.tvAppStatus.setTextColor(0xFF64748B);
+        }
+
         if (item.isProtected) {
             holder.btnProtect.setImageResource(R.drawable.ic_shield);
         } else {
@@ -93,7 +114,7 @@ public class AppListAdapter extends BaseAdapter {
         } else if (item.isStopped) {
             holder.tvStatusBadge.setVisibility(View.VISIBLE);
             holder.tvStatusBadge.setText(R.string.status_stopped);
-            holder.tvStatusBadge.setTextColor(getCompatColor(R.color.text_secondary));
+            holder.tvStatusBadge.setTextColor(isDarkMode ? 0xFF94A3B8 : 0xFF64748B);
             holder.tvStatusBadge.setBackgroundResource(R.drawable.bg_tab_unselected);
         } else {
             holder.tvStatusBadge.setVisibility(View.GONE);
@@ -112,7 +133,7 @@ public class AppListAdapter extends BaseAdapter {
             holder.btnKillSingle.setTextColor(getCompatColor(R.color.success_green));
         } else if (item.isStopped) {
             holder.btnKillSingle.setText(R.string.btn_kill_stopped);
-            holder.btnKillSingle.setTextColor(getCompatColor(R.color.text_secondary));
+            holder.btnKillSingle.setTextColor(isDarkMode ? 0xFF94A3B8 : 0xFF64748B);
         } else {
             holder.btnKillSingle.setText(R.string.btn_kill_single);
             holder.btnKillSingle.setTextColor(getCompatColor(R.color.danger_rose));
@@ -149,6 +170,16 @@ public class AppListAdapter extends BaseAdapter {
         return convertView;
     }
 
+    private GradientDrawable createCardDrawable(int fillColor, int strokeColor) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setColor(fillColor);
+        float density = context.getResources().getDisplayMetrics().density;
+        gd.setCornerRadius(14 * density);
+        gd.setStroke((int) (1 * density), strokeColor);
+        return gd;
+    }
+
     @SuppressWarnings("deprecation")
     private int getCompatColor(int colorResId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -183,6 +214,7 @@ public class AppListAdapter extends BaseAdapter {
     }
 
     private static class ViewHolder {
+        final View layoutCard;
         final ImageView ivAppIcon;
         final TextView tvAppName;
         final TextView tvAppStatus;
@@ -192,6 +224,7 @@ public class AppListAdapter extends BaseAdapter {
         final TextView btnKillSingle;
 
         ViewHolder(View root) {
+            layoutCard = root.findViewById(R.id.layoutItemCard);
             ivAppIcon = root.findViewById(R.id.ivAppIcon);
             tvAppName = root.findViewById(R.id.tvAppName);
             tvAppStatus = root.findViewById(R.id.tvAppStatus);

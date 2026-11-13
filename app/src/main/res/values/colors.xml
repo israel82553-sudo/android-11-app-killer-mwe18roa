@@ -1,8 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg_screen">#F1F5F9</color>
-    <color name="bg_header">#0F172A</color>
-    <color name="bg_card">#FFFFFF</color>
+    <!-- Light Theme Palette -->
+    <color name="bg_screen_light">#F8FAFC</color>
+    <color name="bg_header_light">#0F172A</color>
+    <color name="bg_card_light">#FFFFFF</color>
+    <color name="bg_control_light">#E2E8F0</color>
+    <color name="text_primary_light">#0F172A</color>
+    <color name="text_secondary_light">#64748B</color>
+    <color name="border_subtle_light">#E2E8F0</color>
+
+    <!-- Dark Theme Palette -->
+    <color name="bg_screen_dark">#090D16</color>
+    <color name="bg_header_dark">#111827</color>
+    <color name="bg_card_dark">#1E293B</color>
+    <color name="bg_control_dark">#1F293D</color>
+    <color name="text_primary_dark">#F8FAFC</color>
+    <color name="text_secondary_dark">#94A3B8</color>
+    <color name="border_subtle_dark">#334155</color>
+
+    <!-- Shared Brand Colors -->
     <color name="primary_teal">#0F766E</color>
     <color name="accent_teal">#14B8A6</color>
     <color name="danger_rose">#E11D48</color>
@@ -14,8 +30,13 @@
     <color name="protect_tint">#EFF6FF</color>
     <color name="success_green">#059669</color>
     <color name="success_tint">#ECFDF5</color>
+    <color name="text_muted">#94A3B8</color>
+
+    <!-- Default Theme Mappings (Used as initial references) -->
+    <color name="bg_screen">#F8FAFC</color>
+    <color name="bg_header">#0F172A</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="border_subtle">#E2E8F0</color>
     <color name="text_primary">#0F172A</color>
     <color name="text_secondary">#64748B</color>
-    <color name="text_muted">#94A3B8</color>
-    <color name="border_subtle">#E2E8F0</color>
 </resources>

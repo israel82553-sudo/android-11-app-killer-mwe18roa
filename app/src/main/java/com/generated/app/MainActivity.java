@@ -12,7 +12,9 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,6 +23,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -29,6 +32,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,6 +53,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     private static final String PREFS_NAME = "app_killer_prefs";
     private static final String KEY_PROTECTED = "protected_packages";
+    private static final String KEY_THEME_MODE = "theme_mode_dark";
     private static final long RECENT_WINDOW_MS = 24L * 60L * 60L * 1000L;
 
     private ActivityManager activityManager;
@@ -65,6 +70,9 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     private AppListAdapter adapter;
 
+    private RelativeLayout rootView;
+    private LinearLayout layoutHeader;
+    private ImageButton btnThemeToggle;
     private ImageButton btnRefresh;
     private Button btnQuickBoost;
     private TextView tvRamSummary;
@@ -79,6 +87,11 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     private TextView btnModeForceStop;
     private TextView btnModeQuickKill;
+
+    private LinearLayout layoutTabContainer;
+    private LinearLayout layoutSearchContainer;
+    private LinearLayout layoutBottomBar;
+    private TextView tvFooterNote;
 
     private TextView btnTabRecent;
     private TextView btnTabAll;
@@ -97,6 +110,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private ProgressBar progressBatch;
     private Button btnCancelBatch;
 
+    private boolean isDarkMode = false;
     private boolean showRecentOnly = true;
     private boolean useForceStopMode = true;
     private boolean userSelectedTab = false;
@@ -119,13 +133,15 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        getWindow().setStatusBarColor(0xFF0F172A);
-        setContentView(R.layout.activity_main);
-
         activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         packageManager = getPackageManager();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        // Detect auto system dark mode or stored preference
+        boolean systemDarkMode = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        isDarkMode = prefs.getBoolean(KEY_THEME_MODE, systemDarkMode);
+
+        setContentView(R.layout.activity_main);
 
         detectDefaultLauncher();
 
@@ -138,9 +154,12 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         }
 
         bindViews();
+        adaptSmallScreenDimensions();
+        applyThemeVisuals();
         setupListeners();
 
         adapter = new AppListAdapter(this, this);
+        adapter.setDarkMode(isDarkMode);
         lvApps.setAdapter(adapter);
 
         ForceStopManager.getInstance().setListener(this);
@@ -190,6 +209,9 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     }
 
     private void bindViews() {
+        rootView = findViewById(R.id.rootView);
+        layoutHeader = findViewById(R.id.layoutHeader);
+        btnThemeToggle = findViewById(R.id.btnThemeToggle);
         btnRefresh = findViewById(R.id.btnRefresh);
         btnQuickBoost = findViewById(R.id.btnQuickBoost);
         tvRamSummary = findViewById(R.id.tvRamSummary);
@@ -204,6 +226,11 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
         btnModeForceStop = findViewById(R.id.btnModeForceStop);
         btnModeQuickKill = findViewById(R.id.btnModeQuickKill);
+
+        layoutTabContainer = findViewById(R.id.layoutTabContainer);
+        layoutSearchContainer = findViewById(R.id.layoutSearchContainer);
+        layoutBottomBar = findViewById(R.id.layoutBottomBar);
+        tvFooterNote = findViewById(R.id.tvFooterNote);
 
         btnTabRecent = findViewById(R.id.btnTabRecent);
         btnTabAll = findViewById(R.id.btnTabAll);
@@ -223,7 +250,84 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         btnCancelBatch = findViewById(R.id.btnCancelBatch);
     }
 
+    private void adaptSmallScreenDimensions() {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        float dpHeight = metrics.heightPixels / metrics.density;
+
+        // If on small screen device (< 650dp height), optimize vertical padding dynamically
+        if (dpHeight < 650) {
+            float density = metrics.density;
+            layoutHeader.setPadding((int) (12 * density), (int) (8 * density), (int) (12 * density), (int) (10 * density));
+            findViewById(R.id.layoutRamCard).setPadding((int) (10 * density), (int) (8 * density), (int) (10 * density), (int) (8 * density));
+            layoutBottomBar.setPadding((int) (12 * density), (int) (6 * density), (int) (12 * density), (int) (8 * density));
+            tvFooterNote.setVisibility(View.GONE);
+        }
+    }
+
+    private void applyThemeVisuals() {
+        int statusBarColor = isDarkMode ? 0xFF090D16 : 0xFF0F172A;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            getWindow().setStatusBarColor(statusBarColor);
+        }
+
+        int bgColor = isDarkMode ? getCompatColor(R.color.bg_screen_dark) : getCompatColor(R.color.bg_screen_light);
+        int cardBgColor = isDarkMode ? getCompatColor(R.color.bg_card_dark) : getCompatColor(R.color.bg_card_light);
+        int borderSubtleColor = isDarkMode ? getCompatColor(R.color.border_subtle_dark) : getCompatColor(R.color.border_subtle_light);
+        int textPrimary = isDarkMode ? getCompatColor(R.color.text_primary_dark) : getCompatColor(R.color.text_primary_light);
+        int textSecondary = isDarkMode ? getCompatColor(R.color.text_secondary_dark) : getCompatColor(R.color.text_secondary_light);
+        int headerBgColor = isDarkMode ? getCompatColor(R.color.bg_header_dark) : getCompatColor(R.color.bg_header_light);
+
+        rootView.setBackgroundColor(bgColor);
+
+        // Header shape
+        layoutHeader.setBackground(createRoundedDrawable(headerBgColor, 0, 0, 20));
+
+        // Tab container background
+        int tabContainerColor = isDarkMode ? getCompatColor(R.color.bg_control_dark) : getCompatColor(R.color.bg_control_light);
+        layoutTabContainer.setBackground(createRoundedDrawable(tabContainerColor, 0, 0, 12));
+
+        // Search container
+        layoutSearchContainer.setBackground(createRoundedDrawable(cardBgColor, borderSubtleColor, 1, 12));
+        etSearch.setTextColor(textPrimary);
+        etSearch.setHintTextColor(getCompatColor(R.color.text_muted));
+
+        // Bottom bar
+        layoutBottomBar.setBackgroundColor(cardBgColor);
+        tvEmptyMessage.setTextColor(textSecondary);
+
+        if (adapter != null) {
+            adapter.setDarkMode(isDarkMode);
+        }
+    }
+
+    private GradientDrawable createRoundedDrawable(int fillColor, int strokeColor, int strokeWidthDp, int radiusDp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setColor(fillColor);
+        float density = getResources().getDisplayMetrics().density;
+        gd.setCornerRadius(radiusDp * density);
+        if (strokeWidthDp > 0) {
+            gd.setStroke((int) (strokeWidthDp * density), strokeColor);
+        }
+        return gd;
+    }
+
     private void setupListeners() {
+        btnThemeToggle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isDarkMode = !isDarkMode;
+                prefs.edit().putBoolean(KEY_THEME_MODE, isDarkMode).apply();
+                applyThemeVisuals();
+                updateTabStyles();
+                updateModeStyles();
+                Toast.makeText(MainActivity.this,
+                        isDarkMode ? R.string.toast_theme_switched_dark : R.string.toast_theme_switched_light,
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+
         btnRefresh.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -361,16 +465,17 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     }
 
     private void updateModeStyles() {
+        int unselectedTextColor = isDarkMode ? getCompatColor(R.color.text_secondary_dark) : getCompatColor(R.color.text_secondary_light);
         if (useForceStopMode) {
             btnModeForceStop.setBackgroundResource(R.drawable.bg_tab_selected);
             btnModeForceStop.setTextColor(0xFFFFFFFF);
             btnModeQuickKill.setBackground(null);
-            btnModeQuickKill.setTextColor(getCompatColor(R.color.text_secondary));
+            btnModeQuickKill.setTextColor(unselectedTextColor);
         } else {
             btnModeQuickKill.setBackgroundResource(R.drawable.bg_tab_selected);
             btnModeQuickKill.setTextColor(0xFFFFFFFF);
             btnModeForceStop.setBackground(null);
-            btnModeForceStop.setTextColor(getCompatColor(R.color.text_secondary));
+            btnModeForceStop.setTextColor(unselectedTextColor);
         }
         updateAccessibilityBanner();
     }
@@ -384,16 +489,17 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     }
 
     private void updateTabStyles() {
+        int unselectedTextColor = isDarkMode ? getCompatColor(R.color.text_secondary_dark) : getCompatColor(R.color.text_secondary_light);
         if (showRecentOnly) {
             btnTabRecent.setBackgroundResource(R.drawable.bg_tab_selected);
             btnTabRecent.setTextColor(0xFFFFFFFF);
             btnTabAll.setBackground(null);
-            btnTabAll.setTextColor(getCompatColor(R.color.text_secondary));
+            btnTabAll.setTextColor(unselectedTextColor);
         } else {
             btnTabAll.setBackgroundResource(R.drawable.bg_tab_selected);
             btnTabAll.setTextColor(0xFFFFFFFF);
             btnTabRecent.setBackground(null);
-            btnTabRecent.setTextColor(getCompatColor(R.color.text_secondary));
+            btnTabRecent.setTextColor(unselectedTextColor);
         }
     }
 
