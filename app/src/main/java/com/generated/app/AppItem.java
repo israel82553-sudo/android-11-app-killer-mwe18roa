@@ -11,6 +11,7 @@ public class AppItem {
     public final boolean isSystem;
     public boolean isProtected;
     public boolean isKilled;
+    public boolean isForceStopped;
 
     public AppItem(
             String packageName,
@@ -20,7 +21,8 @@ public class AppItem {
             boolean isStopped,
             boolean isSystem,
             boolean isProtected,
-            boolean isKilled) {
+            boolean isKilled,
+            boolean isForceStopped) {
         this.packageName = packageName;
         this.appName = appName;
         this.icon = icon;
@@ -29,5 +31,6 @@ public class AppItem {
         this.isSystem = isSystem;
         this.isProtected = isProtected;
         this.isKilled = isKilled;
+        this.isForceStopped = isForceStopped;
     }
 }

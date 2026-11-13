@@ -80,6 +80,11 @@ public class AppListAdapter extends BaseAdapter {
             holder.tvStatusBadge.setText(R.string.status_protected);
             holder.tvStatusBadge.setTextColor(getCompatColor(R.color.protect_blue));
             holder.tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_protected);
+        } else if (item.isForceStopped) {
+            holder.tvStatusBadge.setVisibility(View.VISIBLE);
+            holder.tvStatusBadge.setText(R.string.status_force_stopped);
+            holder.tvStatusBadge.setTextColor(getCompatColor(R.color.warning_amber));
+            holder.tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_force_stopped);
         } else if (item.isKilled) {
             holder.tvStatusBadge.setVisibility(View.VISIBLE);
             holder.tvStatusBadge.setText(R.string.status_killed);
@@ -94,11 +99,14 @@ public class AppListAdapter extends BaseAdapter {
             holder.tvStatusBadge.setVisibility(View.GONE);
         }
 
-        boolean canKill = !item.isProtected && !item.isKilled && !item.isStopped;
+        boolean canKill = !item.isProtected && !item.isForceStopped && !item.isKilled && !item.isStopped;
         holder.btnKillSingle.setEnabled(canKill);
         if (item.isProtected) {
             holder.btnKillSingle.setText(R.string.btn_kill_protected);
             holder.btnKillSingle.setTextColor(getCompatColor(R.color.protect_blue));
+        } else if (item.isForceStopped) {
+            holder.btnKillSingle.setText(R.string.btn_force_stopped_done);
+            holder.btnKillSingle.setTextColor(getCompatColor(R.color.warning_amber));
         } else if (item.isKilled) {
             holder.btnKillSingle.setText(R.string.btn_kill_done);
             holder.btnKillSingle.setTextColor(getCompatColor(R.color.success_green));
@@ -109,7 +117,7 @@ public class AppListAdapter extends BaseAdapter {
             holder.btnKillSingle.setText(R.string.btn_kill_single);
             holder.btnKillSingle.setTextColor(getCompatColor(R.color.danger_rose));
         }
-        holder.ivAppIcon.setAlpha((item.isKilled || item.isStopped) ? 0.65f : 1.0f);
+        holder.ivAppIcon.setAlpha((item.isForceStopped || item.isKilled || item.isStopped) ? 0.65f : 1.0f);
 
         holder.btnProtect.setOnClickListener(new View.OnClickListener() {
             @Override

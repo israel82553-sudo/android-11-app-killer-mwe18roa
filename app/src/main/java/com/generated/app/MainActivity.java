@@ -45,7 +45,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MainActivity extends Activity implements AppListAdapter.AppActionListener {
+public class MainActivity extends Activity implements AppListAdapter.AppActionListener, ForceStopManager.ForceStopListener {
 
     private static final String PREFS_NAME = "app_killer_prefs";
     private static final String KEY_PROTECTED = "protected_packages";
@@ -60,6 +60,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
 
     private final List<AppItem> allLoadedApps = new ArrayList<>();
     private final Set<String> killedThisSession = new HashSet<>();
+    private final Set<String> forceStoppedThisSession = new HashSet<>();
     private final Set<String> protectedPackages = new HashSet<>();
 
     private AppListAdapter adapter;
@@ -71,6 +72,13 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private TextView tvAppCountBadge;
     private LinearLayout cardUsagePermission;
     private Button btnGrantUsage;
+
+    private LinearLayout cardAccessibilityPermission;
+    private Button btnGrantAccessibility;
+
+    private TextView btnModeForceStop;
+    private TextView btnModeQuickKill;
+
     private TextView btnTabRecent;
     private TextView btnTabAll;
     private EditText etSearch;
@@ -83,9 +91,16 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private TextView tvResultBanner;
     private Button btnKillAll;
 
+    private LinearLayout layoutBatchProgress;
+    private TextView tvBatchProgressText;
+    private ProgressBar progressBatch;
+    private Button btnCancelBatch;
+
     private boolean showRecentOnly = true;
+    private boolean useForceStopMode = true;
     private boolean userSelectedTab = false;
     private boolean hasUsagePermission = false;
+    private boolean hasAccessibilityPermission = false;
     private boolean isLoading = false;
     private boolean isKillingAll = false;
     private String searchQuery = "";
@@ -121,19 +136,28 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         adapter = new AppListAdapter(this, this);
         lvApps.setAdapter(adapter);
 
+        ForceStopManager.getInstance().setListener(this);
+
         hasUsagePermission = hasUsageStatsPermission();
+        hasAccessibilityPermission = ForceStopManager.isAccessibilityEnabled(this);
+
         showRecentOnly = hasUsagePermission;
         updateTabStyles();
+        updateModeStyles();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         hasUsagePermission = hasUsageStatsPermission();
+        hasAccessibilityPermission = ForceStopManager.isAccessibilityEnabled(this);
+
         if (!userSelectedTab) {
             showRecentOnly = hasUsagePermission;
             updateTabStyles();
         }
+
+        updateAccessibilityBanner();
         updateRamInfo();
         loadAppsAsync(false);
     }
@@ -141,6 +165,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        ForceStopManager.getInstance().setListener(null);
         mainHandler.removeCallbacks(hideBannerRunnable);
         executor.shutdownNow();
     }
@@ -153,6 +178,13 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         tvAppCountBadge = findViewById(R.id.tvAppCountBadge);
         cardUsagePermission = findViewById(R.id.cardUsagePermission);
         btnGrantUsage = findViewById(R.id.btnGrantUsage);
+
+        cardAccessibilityPermission = findViewById(R.id.cardAccessibilityPermission);
+        btnGrantAccessibility = findViewById(R.id.btnGrantAccessibility);
+
+        btnModeForceStop = findViewById(R.id.btnModeForceStop);
+        btnModeQuickKill = findViewById(R.id.btnModeQuickKill);
+
         btnTabRecent = findViewById(R.id.btnTabRecent);
         btnTabAll = findViewById(R.id.btnTabAll);
         etSearch = findViewById(R.id.etSearch);
@@ -164,6 +196,11 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         btnEmptySwitchTab = findViewById(R.id.btnEmptySwitchTab);
         tvResultBanner = findViewById(R.id.tvResultBanner);
         btnKillAll = findViewById(R.id.btnKillAll);
+
+        layoutBatchProgress = findViewById(R.id.layoutBatchProgress);
+        tvBatchProgressText = findViewById(R.id.tvBatchProgressText);
+        progressBatch = findViewById(R.id.progressBatch);
+        btnCancelBatch = findViewById(R.id.btnCancelBatch);
     }
 
     private void setupListeners() {
@@ -171,6 +208,7 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
             @Override
             public void onClick(View v) {
                 killedThisSession.clear();
+                forceStoppedThisSession.clear();
                 v.animate().rotationBy(360f).setDuration(420).start();
                 updateRamInfo();
                 loadAppsAsync(true);
@@ -181,6 +219,35 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
             @Override
             public void onClick(View v) {
                 openUsageAccessSettings();
+            }
+        });
+
+        btnGrantAccessibility.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openAccessibilitySettings();
+            }
+        });
+
+        btnModeForceStop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!useForceStopMode) {
+                    useForceStopMode = true;
+                    updateModeStyles();
+                    applyFilterAndUpdateUi();
+                }
+            }
+        });
+
+        btnModeQuickKill.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (useForceStopMode) {
+                    useForceStopMode = false;
+                    updateModeStyles();
+                    applyFilterAndUpdateUi();
+                }
             }
         });
 
@@ -245,9 +312,48 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         btnKillAll.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                killAllVisibleApps();
+                if (useForceStopMode) {
+                    if (!hasAccessibilityPermission) {
+                        openAccessibilitySettings();
+                        Toast.makeText(MainActivity.this, R.string.toast_accessibility_required, Toast.LENGTH_LONG).show();
+                    } else {
+                        startForceStopBatch();
+                    }
+                } else {
+                    killAllVisibleAppsQuick();
+                }
             }
         });
+
+        btnCancelBatch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ForceStopManager.getInstance().stopBatch();
+            }
+        });
+    }
+
+    private void updateModeStyles() {
+        if (useForceStopMode) {
+            btnModeForceStop.setBackgroundResource(R.drawable.bg_tab_selected);
+            btnModeForceStop.setTextColor(0xFFFFFFFF);
+            btnModeQuickKill.setBackground(null);
+            btnModeQuickKill.setTextColor(getCompatColor(R.color.text_secondary));
+        } else {
+            btnModeQuickKill.setBackgroundResource(R.drawable.bg_tab_selected);
+            btnModeQuickKill.setTextColor(0xFFFFFFFF);
+            btnModeForceStop.setBackground(null);
+            btnModeForceStop.setTextColor(getCompatColor(R.color.text_secondary));
+        }
+        updateAccessibilityBanner();
+    }
+
+    private void updateAccessibilityBanner() {
+        if (useForceStopMode && !hasAccessibilityPermission) {
+            cardAccessibilityPermission.setVisibility(View.VISIBLE);
+        } else {
+            cardAccessibilityPermission.setVisibility(View.GONE);
+        }
     }
 
     private void updateTabStyles() {
@@ -306,12 +412,13 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         final boolean usageAllowed = hasUsagePermission;
         final Set<String> protectedSnapshot = new HashSet<>(protectedPackages);
         final Set<String> killedSnapshot = new HashSet<>(killedThisSession);
+        final Set<String> forceStoppedSnapshot = new HashSet<>(forceStoppedThisSession);
 
         executor.execute(new Runnable() {
             @Override
             public void run() {
                 final List<AppItem> loaded = queryInstalledAndRecentApps(
-                        usageAllowed, protectedSnapshot, killedSnapshot);
+                        usageAllowed, protectedSnapshot, killedSnapshot, forceStoppedSnapshot);
 
                 mainHandler.post(new Runnable() {
                     @Override
@@ -333,7 +440,8 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private List<AppItem> queryInstalledAndRecentApps(
             boolean usageAllowed,
             Set<String> protectedSnapshot,
-            Set<String> killedSnapshot) {
+            Set<String> killedSnapshot,
+            Set<String> forceStoppedSnapshot) {
 
         Map<String, Long> recentUsageMap = new HashMap<>();
         if (usageAllowed) {
@@ -446,7 +554,8 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
                         isStopped,
                         isSystem,
                         protectedSnapshot.contains(pkg),
-                        killedSnapshot.contains(pkg)));
+                        killedSnapshot.contains(pkg),
+                        forceStoppedSnapshot.contains(pkg)));
             }
         }
 
@@ -456,6 +565,9 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
             public int compare(AppItem a, AppItem b) {
                 if (a.lastTimeUsed != b.lastTimeUsed) {
                     return Long.compare(b.lastTimeUsed, a.lastTimeUsed);
+                }
+                if (a.isForceStopped != b.isForceStopped) {
+                    return a.isForceStopped ? 1 : -1;
                 }
                 if (a.isStopped != b.isStopped) {
                     return a.isStopped ? 1 : -1;
@@ -528,21 +640,26 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     }
 
     private void updateKillAllButtonState(List<AppItem> visibleItems) {
-        if (isKillingAll) {
+        if (isKillingAll || ForceStopManager.getInstance().isProcessing()) {
             btnKillAll.setText(R.string.btn_killing);
             btnKillAll.setEnabled(false);
             return;
         }
 
-        int killableCount = 0;
+        int targetCount = 0;
         for (AppItem item : visibleItems) {
-            if (!item.isProtected && !item.isKilled && !item.isStopped) {
-                killableCount++;
+            boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
+            if (!item.isProtected && !isAlreadyStopped) {
+                targetCount++;
             }
         }
 
-        if (killableCount > 0) {
-            btnKillAll.setText(getString(R.string.btn_kill_all, killableCount));
+        if (targetCount > 0) {
+            if (useForceStopMode) {
+                btnKillAll.setText(getString(R.string.btn_force_stop_all, targetCount));
+            } else {
+                btnKillAll.setText(getString(R.string.btn_kill_all, targetCount));
+            }
             btnKillAll.setEnabled(true);
         } else {
             btnKillAll.setText(R.string.btn_kill_all_none);
@@ -550,7 +667,31 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         }
     }
 
-    private void killAllVisibleApps() {
+    private void startForceStopBatch() {
+        List<AppItem> targets = new ArrayList<>();
+        int count = adapter.getCount();
+        for (int i = 0; i < count; i++) {
+            AppItem item = adapter.getItem(i);
+            boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
+            if (!item.isProtected && !isAlreadyStopped) {
+                targets.add(item);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            showResultBanner(getString(R.string.result_none_to_kill));
+            return;
+        }
+
+        layoutBatchProgress.setVisibility(View.VISIBLE);
+        progressBatch.setMax(targets.size());
+        progressBatch.setProgress(0);
+        btnKillAll.setEnabled(false);
+
+        ForceStopManager.getInstance().startBatchForceStop(this, targets);
+    }
+
+    private void killAllVisibleAppsQuick() {
         if (isKillingAll || activityManager == null || executor.isShutdown()) {
             return;
         }
@@ -559,7 +700,8 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
         int count = adapter.getCount();
         for (int i = 0; i < count; i++) {
             AppItem item = adapter.getItem(i);
-            if (!item.isProtected && !item.isKilled && !item.isStopped) {
+            boolean isAlreadyStopped = item.isForceStopped || item.isKilled || item.isStopped;
+            if (!item.isProtected && !isAlreadyStopped) {
                 targets.add(item);
             }
         }
@@ -626,20 +768,69 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     }
 
     @Override
+    public void onProgress(final int current, final int total, final AppItem currentItem) {
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                layoutBatchProgress.setVisibility(View.VISIBLE);
+                progressBatch.setProgress(current);
+                tvBatchProgressText.setText(getString(R.string.force_stop_progress_format, currentItem.appName, current, total));
+                currentItem.isForceStopped = true;
+                forceStoppedThisSession.add(currentItem.packageName);
+                adapter.notifyDataSetChanged();
+            }
+        });
+    }
+
+    @Override
+    public void onFinished(final int forceStoppedCount) {
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                layoutBatchProgress.setVisibility(View.GONE);
+                updateRamInfo();
+                applyFilterAndUpdateUi();
+                showResultBanner(getString(R.string.result_force_stopped_count, forceStoppedCount));
+            }
+        });
+    }
+
+    @Override
     public void onKillSingle(AppItem item) {
-        if (activityManager == null || item.isProtected || item.isKilled || item.isStopped) {
+        if (item.isProtected || item.isForceStopped || item.isKilled || item.isStopped) {
             return;
         }
-        try {
-            activityManager.killBackgroundProcesses(item.packageName);
-        } catch (SecurityException ignored) {
+
+        if (useForceStopMode && hasAccessibilityPermission) {
+            List<AppItem> singleList = new ArrayList<>();
+            singleList.add(item);
+            ForceStopManager.getInstance().startBatchForceStop(this, singleList);
+        } else {
+            if (activityManager != null) {
+                try {
+                    activityManager.killBackgroundProcesses(item.packageName);
+                } catch (SecurityException ignored) {
+                }
+            }
+            item.isKilled = true;
+            killedThisSession.add(item.packageName);
+            adapter.notifyDataSetChanged();
+            updateRamInfo();
+            applyFilterAndUpdateUi();
+
+            if (useForceStopMode && !hasAccessibilityPermission) {
+                onOpenAppInfo(item);
+                Toast.makeText(this, getString(R.string.toast_single_guided_force_stop, item.appName), Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, getString(R.string.toast_single_killed, item.appName), Toast.LENGTH_SHORT).show();
+            }
         }
-        item.isKilled = true;
-        killedThisSession.add(item.packageName);
-        adapter.notifyDataSetChanged();
-        updateRamInfo();
-        applyFilterAndUpdateUi();
-        Toast.makeText(this, getString(R.string.toast_single_killed, item.appName), Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -671,6 +862,18 @@ public class MainActivity extends Activity implements AppListAdapter.AppActionLi
     private void openUsageAccessSettings() {
         try {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            startActivity(intent);
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(Settings.ACTION_SETTINGS));
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void openAccessibilitySettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
         } catch (Exception e) {
             try {
