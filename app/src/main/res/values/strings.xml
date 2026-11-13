@@ -9,7 +9,7 @@
     <string name="btn_quick_boost">ניקוי מהיר</string>
     <string name="apps_count_format">%d אפליקציות</string>
     <string name="apps_count_with_protected_format">%1$d אפליקציות • %2$d מוגנות</string>
-    <string name="mode_force_stop">עצירה כפויה מלאה (נגישות)</string>
+    <string name="mode_force_stop">עצירה כפויה שקטה (נגישות)</string>
     <string name="mode_quick_kill">סגירת רקע מהירה</string>
     <string name="tab_recent">פעילות לאחרונה</string>
     <string name="tab_all">כל האפליקציות</string>
@@ -17,8 +17,8 @@
     <string name="usage_banner_title">נדרשת גישת נתוני שימוש</string>
     <string name="usage_banner_desc">אשר גישת שימוש כדי לזהות באמינות אילו אפליקציות פעלו לאחרונה.</string>
     <string name="usage_banner_btn">הפעל גישה</string>
-    <string name="accessibility_banner_title">נדרשת הרשאת נגישות לעצירה כפויה</string>
-    <string name="accessibility_banner_desc">הרשאת נגישות מאפשרת לאפליקציה לבצע עצירה כפויה אוטומטית בהגדרות כמו במערכת.</string>
+    <string name="accessibility_banner_title">נדרשת הרשאת נגישות לעצירה כפויה שקטה</string>
+    <string name="accessibility_banner_desc">הרשאת נגישות מאפשרת לסגור את האפליקציות ברקע ישירות ושקט ללא הצגת ההגדרות למשתמש.</string>
     <string name="accessibility_banner_btn">הפעל בהגדרות</string>
     <string name="btn_force_stop_all">עצירה כפויה לכל האפליקציות (%d)</string>
     <string name="btn_kill_all">סגור תהליכי רקע (%d)</string>
@@ -31,7 +31,7 @@
     <string name="btn_kill_protected">מוגן</string>
     <string name="btn_cancel">ביטול</string>
     <string name="status_killed">תהליך הרקע נסגר</string>
-    <string name="status_force_stopped">נעצרה כפוי בהגדרות</string>
+    <string name="status_force_stopped">נעצרה כפוי במערכת</string>
     <string name="status_protected">מוגנת מסגירה</string>
     <string name="status_stopped">עצורה במערכת</string>
     <string name="status_active_now">פעלה כעת</string>
@@ -47,7 +47,7 @@
     <string name="empty_search">לא נמצאו אפליקציות התואמות לחיפוש.</string>
     <string name="btn_switch_to_all">הצג את כל האפליקציות</string>
     <string name="force_stop_progress_format">עוצר את %1$s (%2$d מתוך %3$d)</string>
-    <string name="result_force_stopped_count">בוצעה עצירה כפויה ל-%d אפליקציות בהצלחה!</string>
+    <string name="result_force_stopped_count">בוצעה עצירה כפויה שקטה ל-%d אפליקציות בהצלחה!</string>
     <string name="result_killed_freed">נסגרו %1$d אפליקציות • שוחררו %2$s זיכרון</string>
     <string name="result_killed_only">נסגרו תהליכי הרקע של %d אפליקציות</string>
     <string name="result_none_to_kill">כל האפליקציות הזמינות כבר נעצרו או מוגנות.</string>
@@ -56,12 +56,14 @@
     <string name="toast_protected">%s הוגנה מפני סגירה גורפת</string>
     <string name="toast_unprotected">%s הוסרה מרשימת ההגנה</string>
     <string name="toast_launcher_protected">אפליקציית מסך הבית מוגנת אוטומטית</string>
-    <string name="toast_accessibility_required">יש להפעיל את שירות הנגישות בהגדרות כדי לעצור אפליקציות אוטומטית</string>
+    <string name="toast_accessibility_required">יש להפעיל את שירות הנגישות בהגדרות כדי לעצור אפליקציות באופן שקט</string>
     <string name="toast_theme_switched_dark">מצב כהה הופעל</string>
     <string name="toast_theme_switched_light">מצב בהיר הופעל</string>
     <string name="android11_note">לחץ על אייקון המידע ליד אפליקציה לפתיחה ישירה של מסך ההגדרות</string>
-    <string name="accessibility_service_label">סוגר האפליקציות - עצירה כפויה אוטומטית</string>
-    <string name="accessibility_service_desc">שירות זה משמש לביצוע עצירה כפויה אוטומטית של אפליקציות מתוך מסך ההגדרות לבקשתך.</string>
+    <string name="accessibility_service_label">סוגר האפליקציות - עצירה כפויה שקטה</string>
+    <string name="accessibility_service_desc">שירות זה משמש לביצוע עצירה כפויה שקטה ואוטומטית של אפליקציות לבקשתך.</string>
+    <string name="overlay_title">סגירת אפליקציות שקטה</string>
+    <string name="overlay_subtitle">עוצר תהליכי רקע באופן שקט ללא הצגת ההגדרות...</string>
     <string name="cd_refresh">רענן רשימה</string>
     <string name="cd_theme_toggle">החלף מצב כהה/בהיר</string>
     <string name="cd_clear_search">נקה חיפוש</string>

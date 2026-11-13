@@ -19,7 +19,7 @@ public class ForceStopManager {
     }
 
     private static final ForceStopManager INSTANCE = new ForceStopManager();
-    private static final long WATCHDOG_TIMEOUT_MS = 2200L;
+    private static final long WATCHDOG_TIMEOUT_MS = 1400L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<AppItem> queue = new ArrayList<>();
@@ -86,6 +86,12 @@ public class ForceStopManager {
         this.successCount = 0;
         this.isProcessing = true;
 
+        ForceStopAccessibilityService service = ForceStopAccessibilityService.getInstance();
+        if (service != null && !items.isEmpty()) {
+            AppItem first = items.get(0);
+            service.showOverlay(first.appName, first.icon, 1, items.size());
+        }
+
         processNextPackage();
     }
 
@@ -95,6 +101,12 @@ public class ForceStopManager {
         }
         isProcessing = false;
         handler.removeCallbacks(watchdogRunnable);
+
+        ForceStopAccessibilityService service = ForceStopAccessibilityService.getInstance();
+        if (service != null) {
+            service.hideOverlay();
+        }
+
         int finalCount = successCount;
         queue.clear();
 
@@ -123,7 +135,7 @@ public class ForceStopManager {
                 currentIndex++;
                 processNextPackage();
             }
-        }, 180L);
+        }, 100L);
     }
 
     private void processNextPackage() {
@@ -133,6 +145,11 @@ public class ForceStopManager {
         }
 
         AppItem item = queue.get(currentIndex);
+
+        ForceStopAccessibilityService service = ForceStopAccessibilityService.getInstance();
+        if (service != null) {
+            service.updateOverlay(item.appName, item.icon, currentIndex + 1, queue.size());
+        }
 
         if (listener != null) {
             listener.onProgress(currentIndex + 1, queue.size(), item);
